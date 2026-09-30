@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from getpass import getpass
-import re
 
 from playwright.sync_api import Error as PlaywrightError, Page, expect
 
@@ -32,15 +31,8 @@ class PlaywrightSessionManager:
 
     def _login(self, username: str, password: str, landing_url: str, success_selector: str) -> None:
         self.page.goto(self.login_url, wait_until="domcontentloaded")
-        self.page.locator('#kime, input[name="email"]').fill(username)
-        self.page.locator('#lozinka, input[name="password"]').fill(password)
-        human = self.page.locator('input[name="human"]')
-        if human.count():
-            prompt = human.get_attribute("placeholder") or ""
-            match = re.fullmatch(r"\s*(\d+)\s*(?:PLUS|\+)\s*(\d+)\s*=\s*\?\s*", prompt, re.I)
-            if not match:
-                raise ValueError("Unrecognized login arithmetic question.")
-            human.fill(str(int(match[1]) + int(match[2])))
+        self.page.locator('#kime, input[name="kime"]').fill(username)
+        self.page.locator('#lozina, input[name="lozinka"]').fill(password)
         self.page.locator(
             '#btnSubMitc, button[name="submit"][type="submit"], '
             'input[name="submit"][type="submit"]'
@@ -53,7 +45,7 @@ class PlaywrightSessionManager:
                 '.alert-danger, [role="alert"], .invalid-feedback, .text-danger'
             )];
             if (alerts.some(element => visible(element) && element.textContent.trim())) return 'error';
-            const fields = [...document.querySelectorAll('#lozinka, input[name="password"]')];
+            const fields = [...document.querySelectorAll('#lozina, input[name="lozinka"]')];
             if (!fields.some(visible)) return 'success';
             return false;
         }""").json_value()
@@ -61,7 +53,7 @@ class PlaywrightSessionManager:
             raise LoginError("Login failed: the login page reported an error. Check your credentials.")
         self.page.goto(landing_url, wait_until="domcontentloaded")
         expect(self.page.locator(success_selector)).to_be_visible(timeout=30_000)
-        if self.page.locator('#lozinka, input[name="password"]').count():
+        if self.page.locator('#lozina, input[name="lozinka"]').count():
             raise LoginError("Login failed: the requested page redirected back to login.")
 
 

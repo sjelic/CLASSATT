@@ -6,8 +6,7 @@ from prisutnosti import session
 from prisutnosti.checker import AttendanceChecker, CHECK_URL
 
 
-@pytest.mark.parametrize("question,answer", [("12 PLUS 7 = ?", "19"), ("3 + 4 = ?", "7")])
-def test_login_answers_arithmetic_and_verifies_protected_page(monkeypatch, question, answer):
+def test_login_uses_esalter_fields_without_human_check(monkeypatch):
     page = MagicMock()
     locators = {}
 
@@ -16,24 +15,16 @@ def test_login_answers_arithmetic_and_verifies_protected_page(monkeypatch, quest
 
     page.locator.side_effect = locator
     page.wait_for_function.return_value.json_value.return_value = "success"
-    locator('#lozinka, input[name="password"]').count.return_value = 0
-    human = locator('input[name="human"]')
-    human.count.return_value = 1
-    human.get_attribute.return_value = question
+    locator('#lozina, input[name="lozinka"]').count.return_value = 0
     expected = MagicMock()
     monkeypatch.setattr(session, "expect", expected)
-    session.PlaywrightSessionManager(page).login("person@example.com", "secret")
-    human.fill.assert_called_once_with(answer)
+    session.PlaywrightSessionManager(page).login("teacher", "secret")
+    locators['#kime, input[name="kime"]'].fill.assert_called_once_with("teacher")
+    locators['#lozina, input[name="lozinka"]'].fill.assert_called_once_with("secret")
+    assert not any("human" in selector for selector in locators)
+    assert '#lozina, input[name="lozinka"]' in page.wait_for_function.call_args.args[0]
     assert page.goto.call_args_list[-1].args == (CHECK_URL,)
     expected.return_value.to_be_visible.assert_called_once()
-
-
-def test_login_rejects_unrecognized_question_without_submitting(monkeypatch):
-    page = MagicMock()
-    page.locator.return_value.get_attribute.return_value = "Unexpected question"
-    with pytest.raises(session.LoginError, match="Login failed"):
-        session.PlaywrightSessionManager(page).login("user", "secret")
-    page.locator.return_value.click.assert_not_called()
 
 
 def test_prompt_hides_password_and_requires_nonempty_values(monkeypatch):
