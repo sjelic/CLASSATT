@@ -1,11 +1,11 @@
 # Prisutnosti (CLASSATT)
 
-Python CLI project for loading attendance schedules from Excel, creating attendance terms in eSalter through Selenium, and checking/download attendance artifacts.
+Python CLI project for loading attendance schedules from Excel, creating attendance terms in eSalter through Playwright, and checking/download attendance artifacts.
 
 ## Features
 
 - Load and validate teaching term rows from Excel (`load` command).
-- Log in to eSalter and keep an authenticated Selenium session (`login` command).
+- Verify eSalter login (`login` command); authenticate automatically before each browser operation.
 - Create one attendance term (`create-term` command).
 - Create multiple attendance terms from Excel with per-row error isolation (`create` command).
 - Check/filter created terms and optionally download attendance lists and QR codes (`check` command).
@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone <your-repo-url>
+git clone --branch codex/replace-selenium-with-playwright-edge https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -23,6 +23,12 @@ cd CLASSATT
 
 ```bash
 python -m pip install .
+```
+
+Install Microsoft Edge if it is not already installed:
+
+```bash
+python -m playwright install msedge
 ```
 
 ### 3) Install developer dependencies (tests)
@@ -70,15 +76,18 @@ prisutnosti load --excel-path ./schedule.xlsx --excel-sheet Sheet1
 ### `prisutnosti login`
 Open login page and submit credentials to eSalter.
 
-Arguments:
+Every browser command (`login`, `create-term`, `create`, and `check`) prompts for
+username/email and password. Password input is hidden. Credentials are neither
+read from environment variables nor saved. The same authenticated browser context
+is used for the entire command and closed afterwards. `login` verifies access and exits;
+it does not save a session for later commands.
 
-- `--username` (optional)
-- `--password` (optional; if missing, input is prompted with hidden characters)
-
-Example:
+The login supports the existing eSalter IDs and the email/password fields used in
+Prijava Automatizacija, including its optional `PLUS` arithmetic question.
+All attendance and Excel options remain command-line parameters.
 
 ```bash
-prisutnosti login --username my_user
+prisutnosti login
 ```
 
 ### `prisutnosti create-term`
@@ -157,5 +166,7 @@ pytest
 
 ## Notes
 
-- Selenium WebDriver (Chrome) must be available in your environment.
+- Microsoft Edge is launched visibly through Playwright (`channel="msedge"`); no WebDriver is required.
+- Downloads require the corresponding directory parameter; attendance exports are saved from actual browser downloads.
+- Attendance tables are expected to use the existing jQuery DataTables pagination.
 - This project focuses on command orchestration and automation logic; availability and exact DOM behavior depend on eSalter runtime pages.

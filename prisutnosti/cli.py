@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import json
-from typing import Any
+from contextlib import contextmanager
 
-from selenium import webdriver
+from playwright.sync_api import sync_playwright
 
 from .bulk_creator import BulkAttendanceCreator
 from .checker import AttendanceChecker
 from .loader import load_terms_dataframe
-from .session import SeleniumSessionManager, prompt_credentials
+from .session import PlaywrightSessionManager, prompt_credentials
 from .single_creator import AttendanceTermCreator
 
 
@@ -21,9 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     load_parser.add_argument("--excel-path", required=True)
     load_parser.add_argument("--excel-sheet", required=True)
 
-    login_parser = sub.add_parser("login", help="Start an authenticated Selenium session")
-    login_parser.add_argument("--username")
-    login_parser.add_argument("--password")
+    sub.add_parser("login", help="Verify login using prompted credentials")
 
     create_term_parser = sub.add_parser("create-term", help="Create a single attendance term")
     create_term_parser.add_argument("--date", required=True)
@@ -51,8 +50,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _build_driver() -> Any:
-    return webdriver.Chrome()
+@contextmanager
+def _browser_page():
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="msedge", headless=False)
+        try:
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+            page.set_default_timeout(30_000)
+            yield page
+        finally:
+            browser.close()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,19 +72,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Loaded {len(df)} rows successfully.")
         return 0
 
-    driver = _build_driver()
-    try:
+    username, password = prompt_credentials()
+    with _browser_page() as page:
+        PlaywrightSessionManager(page).login(username, password)
         if args.command == "login":
-            username = args.username
-            password = args.password
-            if not username or not password:
-                username, password = prompt_credentials()
-            SeleniumSessionManager(driver).login(username, password)
-            print("Login submitted.")
+            print("Login verified.")
             return 0
 
         if args.command == "create-term":
-            creator = AttendanceTermCreator(driver)
+            creator = AttendanceTermCreator(page)
             creator.create_term(
                 date=args.date,
                 time=args.time,
@@ -89,16 +93,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "create":
-            result = BulkAttendanceCreator(AttendanceTermCreator(driver)).create_from_excel(
+            result = BulkAttendanceCreator(AttendanceTermCreator(page)).create_from_excel(
                 excel_path=args.excel_path,
                 excel_sheet=args.excel_sheet,
                 course_code=args.course_code,
             )
-            print(json.dumps(result.__dict__, ensure_ascii=False))
+            print(json.dumps(asdict(result), ensure_ascii=False))
             return 0 if result.failed == 0 else 1
 
         if args.command == "check":
-            checker = AttendanceChecker(driver)
+            checker = AttendanceChecker(page)
             result = checker.check(
                 date=args.date,
                 time=args.time,
@@ -114,8 +118,6 @@ def main(argv: list[str] | None = None) -> int:
 
         parser.error("Unknown command")
         return 2
-    finally:
-        driver.quit()
 
 
 if __name__ == "__main__":
