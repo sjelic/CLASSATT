@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from prisutnosti import cli
 
@@ -42,7 +43,8 @@ def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, ca
         def __init__(self, received):
             assert received is page
 
-        def login(self, username, password):
+        def login(self, username, password, **kwargs):
+            assert kwargs["landing_url"] == cli.CREATE_URL
             assert (username, password) == ("user", "secret")
             events.append("login")
 
@@ -64,8 +66,14 @@ def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, ca
     assert '"created": 1' in capsys.readouterr().out
 
 
-def test_browser_closes_when_operation_fails(monkeypatch):
-    import pytest
+@pytest.mark.parametrize("arguments", [
+    ["login"],
+    ["create", "--excel-path", "terms.xlsx", "--excel-sheet", "Data", "--course-code", "ABC"],
+    ["create-term", "--date", "2026-04-01", "--time", "10:00:00", "--link-duration", "30",
+     "--course-code", "ABC", "--activation", "selected", "--room", "A1"],
+    ["check"],
+])
+def test_login_failure_reports_error_closes_browser_and_blocks_actions(monkeypatch, capsys, arguments):
     from contextlib import contextmanager
 
     events = []
@@ -81,12 +89,18 @@ def test_browser_closes_when_operation_fails(monkeypatch):
         def __init__(self, page):
             pass
 
-        def login(self, *args):
-            raise RuntimeError("Login failed")
+        def login(self, *args, **kwargs):
+            raise cli.LoginError("Login failed")
 
     monkeypatch.setattr(cli, "_browser_page", browser)
     monkeypatch.setattr(cli, "prompt_credentials", lambda: ("user", "secret"))
     monkeypatch.setattr(cli, "PlaywrightSessionManager", Session)
-    with pytest.raises(RuntimeError, match="Login failed"):
-        cli.main(["login"])
+    def forbidden(*args, **kwargs):
+        pytest.fail("Attendance action must not run after login failure")
+
+    monkeypatch.setattr(cli, "AttendanceTermCreator", forbidden)
+    monkeypatch.setattr(cli, "BulkAttendanceCreator", forbidden)
+    monkeypatch.setattr(cli, "AttendanceChecker", forbidden)
+    assert cli.main(arguments) == 1
+    assert "Login failed" in capsys.readouterr().err
     assert events == ["closed"]
