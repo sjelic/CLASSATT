@@ -33,28 +33,15 @@ class PlaywrightSessionManager:
         self.page.goto(self.login_url, wait_until="domcontentloaded")
         self.page.locator('#kime, input[name="kime"]').fill(username)
         self.page.locator('#lozina, input[name="lozinka"]').fill(password)
-        self.page.locator(
-            '#btnSubMitc, button[name="submit"][type="submit"], '
-            'input[name="submit"][type="submit"]'
-        ).click()
-        # Wait for the login result before navigating away. Failed credentials
-        # commonly leave the form visible and display an alert on the same URL.
-        result = self.page.wait_for_function("""() => {
-            const visible = element => !!(element && element.getClientRects().length);
-            const alerts = [...document.querySelectorAll(
-                '.alert-danger, [role="alert"], .invalid-feedback, .text-danger'
-            )];
-            if (alerts.some(element => visible(element) && element.textContent.trim())) return 'error';
-            const fields = [...document.querySelectorAll('#lozina, input[name="lozinka"]')];
-            if (!fields.some(visible)) return 'success';
-            return false;
-        }""").json_value()
-        if result != "success":
-            raise LoginError("Login failed: the login page reported an error. Check your credentials.")
+        self.page.locator("#btnSubMitc").click()
         self.page.goto(landing_url, wait_until="domcontentloaded")
-        expect(self.page.locator(success_selector)).to_be_visible(timeout=30_000)
-        if self.page.locator('#lozina, input[name="lozinka"]').count():
-            raise LoginError("Login failed: the requested page redirected back to login.")
+        try:
+            expect(self.page.locator(success_selector)).to_be_visible(timeout=30_000)
+        except (PlaywrightError, AssertionError) as exc:
+            raise LoginError(
+                f"Login failed: expected element '{success_selector}' was not found "
+                f"on landing page '{landing_url}'."
+            ) from exc
 
 
 def prompt_credentials() -> tuple[str, str]:
