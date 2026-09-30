@@ -3,15 +3,16 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+import sys
 from contextlib import contextmanager
 
 from playwright.sync_api import sync_playwright
 
 from .bulk_creator import BulkAttendanceCreator
-from .checker import AttendanceChecker
+from .checker import AttendanceChecker, CHECK_URL
 from .loader import load_terms_dataframe
-from .session import PlaywrightSessionManager, prompt_credentials
-from .single_creator import AttendanceTermCreator
+from .session import LoginError, PlaywrightSessionManager, prompt_credentials
+from .single_creator import AttendanceTermCreator, CREATE_URL
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -72,9 +73,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Loaded {len(df)} rows successfully.")
         return 0
 
-    username, password = prompt_credentials()
+    try:
+        username, password = prompt_credentials()
+    except ValueError as exc:
+        print(f"Login failed: {exc}", file=sys.stderr)
+        return 1
     with _browser_page() as page:
-        PlaywrightSessionManager(page).login(username, password)
+        creating = args.command in {"create-term", "create"}
+        try:
+            PlaywrightSessionManager(page).login(
+                username, password,
+                landing_url=CREATE_URL if creating else CHECK_URL,
+                success_selector="#datumprisustvo" if creating else "#dataTables-studenti",
+            )
+        except LoginError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
         if args.command == "login":
             print("Login verified.")
             return 0

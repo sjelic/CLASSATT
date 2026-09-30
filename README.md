@@ -84,6 +84,11 @@ it does not save a session for later commands.
 
 The login supports the existing eSalter IDs and the email/password fields used in
 Prijava Automatizacija, including its optional `PLUS` arithmetic question.
+Login submission is checked before proceeding. On success, single and bulk creation
+open `https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php`;
+checking opens the attendance overview. The destination must show its expected
+form/table. A failed or unverifiable login prints an error, closes Edge, and exits
+with status 1 without performing attendance actions. `load` requires no login.
 All attendance and Excel options remain command-line parameters.
 
 ```bash
