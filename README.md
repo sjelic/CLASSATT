@@ -84,8 +84,8 @@ it does not save a session for later commands.
 
 The login uses username `id="kime"` / `name="kime"` and password
 `id="lozina"` / `name="lozinka"`. This eSalter version has no human check.
-Login submission is checked before proceeding. On success, single and bulk creation
-open `https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php`;
+The login submit button is selected only by `id="btnSubMitc"`. Immediately after
+submission, single and bulk creation open `https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php`;
 checking opens the attendance overview. The destination must show its expected
 form/table. A failed or unverifiable login prints an error, closes Edge, and exits
 with status 1 without performing attendance actions. `load` requires no login.
