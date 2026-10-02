@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             PlaywrightSessionManager(page).login(
                 username, password,
                 landing_url=CREATE_URL if creating else CHECK_URL,
-                success_selector="#datumprisustvo" if creating else "#dataTables-studenti",
+                success_selector="#navbarDropdownPortfolio",
             )
         except LoginError as exc:
             print(str(exc), file=sys.stderr)
