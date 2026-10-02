@@ -53,6 +53,7 @@ class AttendanceChecker:
         self.page.goto(CHECK_URL, wait_until="domcontentloaded")
         expect(self.page.locator("#dataTables-studenti_filter input")).to_be_visible()
         self.page.locator("#dataTables-studenti_filter input").fill(query)
+        self.page.locator("#dataTables-studenti_filter input").press("Enter")
         # DataTables' synchronous draw avoids reading stale rows after filtering.
         self.page.wait_for_function("""() => window.jQuery &&
             jQuery.fn.dataTable && jQuery.fn.dataTable.isDataTable('#dataTables-studenti')""")
@@ -73,11 +74,17 @@ class AttendanceChecker:
         download_qrcode: bool = False,
         qrcode_directory: str | None = None,
     ) -> list[dict[str, Any]]:
+        
+        
+        self.page.goto(CHECK_URL, wait_until="domcontentloaded")
+        
+        
         if download_list and not list_directory:
             raise ValueError("list_directory is required when downloading attendance lists.")
         if download_qrcode and not qrcode_directory:
             raise ValueError("qrcode_directory is required when downloading QR codes.")
         query = " ".join(value for value in [date, course_code, room, time] if value)
+        print(f"Searching for attendance terms matching: {query}")
         self._open_results(query)
         headers = [self._to_latin(text.strip()) for text in
                    self.page.locator("#dataTables-studenti > thead > tr > th").all_text_contents()]
@@ -92,6 +99,7 @@ class AttendanceChecker:
                     continue
                 cells = [text.strip() for text in row.locator("td").all_text_contents()]
                 row_dict = dict(zip(headers, cells))
+                print(row_dict)
                 results.append(row_dict)
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
@@ -110,11 +118,11 @@ class AttendanceChecker:
     @staticmethod
     def _filename(prefix: str, row_dict: dict[str, Any], extension: str) -> str:
         # Prevent values from the page (e.g. dates containing '/') becoming paths.
-        parts = [str(row_dict.get(key, "UNKNOWN")) for key in ("Sifra", "Datum", "Vreme", "Sala")]
+        parts = [str(row_dict.get(key, "UNKNOWN")) for key in ("Kod predmeta", "Datum prisustva", "Vreme pocetka", "Sala")]
         return prefix + "_" + "_".join(re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", part) for part in parts) + extension
 
     def _download_list(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
-        row.locator('#raporti_prisustvo_id input[type="submit"], input[type="submit"]').first.click()
+        row.locator('#raporti_prisustvo_id input[value="СПИСАК СТУДЕНАТА"]').click()
         export = self.page.locator(
             "#dataTables-studenti_wrapper > div.dt-buttons.btn-group > "
             "button.btn.btn-secondary.buttons-excel.buttons-html5"
@@ -130,7 +138,7 @@ class AttendanceChecker:
             return
         status = cells.nth(8)
         # Only open a QR modal for rows whose status has a modal trigger.
-        trigger = status.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"], a, button')
+        trigger = status.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"]')
         if trigger.count():
             trigger.first.click()
         elif status.get_attribute("onclick"):
