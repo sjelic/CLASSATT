@@ -38,3 +38,21 @@ def test_create_from_excel_continues_after_single_row_failure(tmp_path: Path) ->
     assert result.failed == 1
     assert len(result.errors) == 1
     assert len(fake.calls) == 2
+
+
+def test_bulk_continues_after_skips_and_counts_created_skipped_failed(monkeypatch):
+    from types import SimpleNamespace
+    from datetime import datetime
+    from unittest.mock import MagicMock
+    from prisutnosti import bulk_creator
+    terms = [SimpleNamespace(registration_start=datetime(2026, 4, 1, 10),
+                            link_duration_minutes=30, activation="selected", room=room)
+             for room in ["EXISTS", "NEW", "FAIL", "EXISTS_AGAIN"]]
+    monkeypatch.setattr(bulk_creator, "load_terms_dataframe", lambda *args: object())
+    monkeypatch.setattr(bulk_creator, "dataframe_to_terms", lambda df: terms)
+    creator = MagicMock()
+    creator.create_term.side_effect = [False, True, RuntimeError("failed"), False]
+    result = BulkAttendanceCreator(creator).create_from_excel("test.xlsx", "Data", "ABC")
+    assert (result.created, result.skipped, result.failed) == (1, 2, 1)
+    assert result.errors == ["Row 3: failed"]
+    assert creator.create_term.call_count == 4

@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/add-operation-logging https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/skip-existing-attendance https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -186,19 +186,15 @@ pytest
 - `session.py`: login submission and authentication verification; no landing-page parameter.
 - `single_creator.py`, `bulk_creator.py`, `checker.py`, `loader.py`: existing operation logic and navigation.
 
-## Logging
+## Existing attendance detection
 
-CLI progress, results, and errors use Python logging with timestamp, severity,
-and module name. INFO is the default. Use `--log-level` before the command:
+Before submitting a single or bulk attendance, the creator searches using the
+existing checker with the same date, time, course code, and room. A match skips
+creation and reports that the attendance already exists. Search failures stop
+single creation; bulk creation records the row failure and continues.
 
-```bash
-prisutnosti --log-level DEBUG check --course-code MAT101
-```
-
-Logs cover browser startup/cleanup, login submission and verification, Excel
-loading/validation, form selection/submission, creation verification, bulk row
-results, attendance searches/pagination, and list/QR downloads. Detailed attendance
-rows are logged at DEBUG. Passwords and usernames are not logged. Output goes to
-stderr; command exit codes are unchanged. Credential prompts and argparse help
-remain interactive terminal output. Library callers can configure Python logging
-through their own application.
+Bulk creation processes every row and its JSON summary includes `created`,
+`skipped`, `failed`, and `errors`. Skipped rows count as successful processing
+(exit status 0 when there are no failures). Newly created attendance is still
+verified through the checker after submission. CLI date strings are converted to
+date objects before using the calendar picker.

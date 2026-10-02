@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass
+import logging
 
 from .loader import dataframe_to_terms, load_terms_dataframe
 from .single_creator import AttendanceTermCreator
@@ -10,11 +11,13 @@ from .single_creator import AttendanceTermCreator
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass(slots=True)
 class BulkCreateResult:
     created: int
     failed: int
     errors: list[str]
+    skipped: int = 0
 
 
 class BulkAttendanceCreator:
@@ -28,12 +31,13 @@ class BulkAttendanceCreator:
 
         created = 0
         failed = 0
+        skipped = 0
         errors: list[str] = []
 
         for index, term in enumerate(terms, start=1):
             logger.info("Creating attendance row %d of %d", index, len(terms))
             try:
-                self.term_creator.create_term(
+                was_created = self.term_creator.create_term(
                     date=term.registration_start,
                     time=term.registration_start.strftime("%H:%M:%S"),
                     link_duration=term.link_duration_minutes,
@@ -47,8 +51,6 @@ class BulkAttendanceCreator:
                 failed += 1
                 logger.error("Attendance row %d failed: %s", index, exc)
                 errors.append(f"Row {index}: {exc}")
-            
-            break
 
-        logger.info("Bulk creation finished: created=%d failed=%d", created, failed)
-        return BulkCreateResult(created=created, failed=failed, errors=errors)
+
+        return BulkCreateResult(created=created, failed=failed, errors=errors, skipped=skipped)

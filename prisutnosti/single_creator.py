@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date as Date, datetime
 
 from playwright.sync_api import Page
 
@@ -18,15 +19,21 @@ class AttendanceTermCreator:
 
     def create_term(
         self,
-        date: str,
+        date: str | Date,
         time: str,
         link_duration: int,
         course_code: str,
         activation: str,
         room: str,
-    ) -> None:
-        logger.info("Creating attendance: course=%s date=%s time=%s room=%s", course_code, date, time, room)
-        logger.info("Opening creation page: %s", CREATE_URL)
+    ) -> bool:
+        """Return False for an existing attendance, True after creating one."""
+        if isinstance(date, str):
+            date = datetime.strptime(date, "%Y-%m-%d").date()
+        search = dict(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
+        if self.checker.check(**search):
+            logger.info("Skipping existing attendance: course=%s date=%s time=%s room=%s",
+                        course_code, search["date"], time, room)
+            return False
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
         
         logger.info("Selecting attendance date")
@@ -51,12 +58,11 @@ class AttendanceTermCreator:
         logger.info("Submitting attendance form")
         self.page.locator("#btnSubMitc").click()
 
-        logger.info("Finding the created attendance for verification")
-        created = self.checker.check(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
+        created = self.checker.check(**search)
         if not created:
             logger.error("Created attendance could not be found")
             raise RuntimeError("Attendance term was not created.")
-        logger.info("Attendance creation verified")
+        return True
 
     def _select_value(self, selector: str, value: str) -> None:
         logger.info("Selecting %s = %s", selector, value)
