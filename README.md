@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/replace-selenium-with-playwright-edge https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/refactor-command-orchestration https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -83,12 +83,14 @@ is used for the entire command and closed afterwards. `login` verifies access an
 it does not save a session for later commands.
 
 The login uses username `id="kime"` / `name="kime"` and password
-`id="lozina"` / `name="lozinka"`. This eSalter version has no human check.
-The login submit button is selected only by `id="btnSubMitc"`. Immediately after
-submission, single and bulk creation open `https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php`;
-checking opens the attendance overview. The destination must show its expected
-form/table. A failed or unverifiable login prints an error, closes Edge, and exits
-with status 1 without performing attendance actions. `load` requires no login.
+`id="lozinka"` / `name="lozinka"`. This eSalter version has no human check.
+Login opens the sign-in link from the teacher homepage and submits with
+`id="btnSubMitc"`. It verifies `#navbarDropdownPortfolio` on the resulting page;
+login does not navigate to an attendance page. Each operation owns its navigation:
+creation opens `https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php`,
+and checking opens the attendance overview. A failed or unverifiable login prints
+an error, closes Edge, and exits with status 1 without performing attendance actions.
+`load` requires no login.
 All attendance and Excel options remain command-line parameters.
 
 ```bash
@@ -175,3 +177,11 @@ pytest
 - Downloads require the corresponding directory parameter; attendance exports are saved from actual browser downloads.
 - Attendance tables are expected to use the existing jQuery DataTables pagination.
 - This project focuses on command orchestration and automation logic; availability and exact DOM behavior depend on eSalter runtime pages.
+
+## Code organization
+
+- `cli.py`: argument parsing, authentication before dispatch, console output, and exit status.
+- `commands.py`: typed command parameters and operation results, independent of argparse.
+- `browser.py`: Edge startup and cleanup for the lifetime of a command.
+- `session.py`: login submission and authentication verification; no landing-page parameter.
+- `single_creator.py`, `bulk_creator.py`, `checker.py`, `loader.py`: existing operation logic and navigation.

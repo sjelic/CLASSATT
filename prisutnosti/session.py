@@ -4,13 +4,12 @@ from getpass import getpass
 
 from playwright.sync_api import Error as PlaywrightError, Page, expect
 
-from .checker import CHECK_URL
-
 
 class LoginError(RuntimeError):
     """Authentication failed; browser actions must not proceed."""
 
 LOGIN_URL = "https://esalter.grf.bg.ac.rs/nastavnik"
+AUTHENTICATED_SELECTOR = "#navbarDropdownPortfolio"
 
 
 class PlaywrightSessionManager:
@@ -22,14 +21,14 @@ class PlaywrightSessionManager:
 
     def login(
         self, username: str, password: str,
-        landing_url: str = CHECK_URL, success_selector: str = "#dataTables-studenti",
+        success_selector: str = "#dataTables-studenti",
     ) -> None:
         try:
-            self._login(username, password, landing_url, success_selector)
+            self._login(username, password, success_selector)
         except (PlaywrightError, AssertionError, ValueError) as exc:
             raise LoginError("Login failed: credentials were rejected or authentication could not be verified.") from exc
 
-    def _login(self, username: str, password: str, landing_url: str, success_selector: str) -> None:
+    def _login(self, username: str, password: str, success_selector: str) -> None:
         self.page.goto(self.login_url, wait_until="domcontentloaded")
         self.page.locator('#navbarResponsive ul[class="navbar-nav ml-auto"] li[class="nav-item"] a').click()
         self.page.locator('#kime').fill(username)
@@ -41,7 +40,7 @@ class PlaywrightSessionManager:
         except (PlaywrightError, AssertionError) as exc:
             raise LoginError(
                 f"Login failed: expected element '{success_selector}' was not found "
-                f"on landing page '{landing_url}'."
+                "after submitting login."
             ) from exc
 
 
