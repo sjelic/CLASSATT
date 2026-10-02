@@ -210,7 +210,8 @@ prisutnosti latex \
   --excel-path ./schedule.xlsx \
   --excel-sheet Sheet1 \
   --course-code B3I3VP \
-  --qrcode-directory ./qr \
+  --qrcode-directory-path . \
+  --qrcode-subfolder-path qr \
   --output-path ./attendance.tex
 ```
 
@@ -250,3 +251,11 @@ line breaks are rejected because they cannot safely be used in the image macros.
 Each registration-date/teaching-type group has one section heading, immediately
 before its first available QR subsection. Later classes get subsections and new
 pages without repeating the section. Groups with no QR files have no heading.
+
+For `latex`, `--qrcode-directory-path` is the base directory used for filesystem
+checks and `--qrcode-subfolder-path` is the relative QR folder. The resolved join
+of these arguments locates images on disk. Only the subfolder (with forward
+slashes and a trailing slash) is written to `\graphicspath`, keeping the LaTeX
+source portable. Compile from a LaTeX workspace where that subfolder exists.
+Absolute subfolder paths are rejected. The `check` command's download-directory
+argument remains `--qrcode-directory`.

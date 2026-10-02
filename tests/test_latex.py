@@ -25,7 +25,7 @@ def workbook(tmp_path, types=("PREDAVANJE", "PREDAVANJE", "VEŽBE", "PREDAVANJE"
         name = f"QRCODE_B3I3VP_{pd.Timestamp(date):%Y-%m-%d_%H_%M_%S}_322.png"
         (images / name).write_bytes(b"test image")
     return dict(excel_path=str(excel), excel_sheet="Calendar", course_code="B3I3VP",
-                qrcode_directory=str(images), output_path=str(tmp_path / "booklet.tex"))
+                qrcode_directory_path=str(tmp_path), qrcode_subfolder_path="QR images", output_path=str(tmp_path / "booklet.tex"))
 
 
 def test_booklet_rebuilds_idempotently_and_keeps_calendar_counters(tmp_path, caplog):
@@ -34,6 +34,8 @@ def test_booklet_rebuilds_idempotently_and_keeps_calendar_counters(tmp_path, cap
     result = generate_latex(**options)
     content = result.output_path.read_text()
     assert result.written == 4
+    assert r"\graphicspath{{\detokenize{QR images/}}}" in content
+    assert str(tmp_path) not in content
     assert len(result.skipped) == 1
     assert result.skipped[0].name == "QRCODE_B3I3VP_2026-10-09_13_15_00_322.png"
     assert content.count("\\includegraphics[") == 4
@@ -48,7 +50,7 @@ def test_booklet_rebuilds_idempotently_and_keeps_calendar_counters(tmp_path, cap
     original = result.output_path.read_bytes()
     assert generate_latex(**options).output_path.read_bytes() == original
     # Removing all images rebuilds the complete file without stale pages.
-    for image in Path(options["qrcode_directory"]).glob("*.png"):
+    for image in (Path(options["qrcode_directory_path"]) / options["qrcode_subfolder_path"]).glob("*.png"):
         image.unlink()
     result = generate_latex(**options)
     assert result.written == 0 and len(result.skipped) == 5
@@ -88,9 +90,16 @@ def test_cli_generates_without_login_and_reports_skipped_files(tmp_path, monkeyp
 
 def test_section_precedes_first_available_subsection_when_first_qr_is_missing(tmp_path):
     options = workbook(tmp_path)
-    (Path(options["qrcode_directory"]) / "QRCODE_B3I3VP_2026-10-08_13_15_00_322.png").unlink()
+    ((Path(options["qrcode_directory_path"]) / options["qrcode_subfolder_path"]) / "QRCODE_B3I3VP_2026-10-08_13_15_00_322.png").unlink()
     result = generate_latex(**options)
     content = result.output_path.read_text()
     assert result.written == 3
     assert content.count("\\sectionaddtoc{") == 3
     assert "\\sectionaddtoc{1. PREDAVANJE: 8. oktobar 2026. Sala: 322}\n\\subsectionaddtoc{2. čas" in content
+
+
+def test_absolute_subfolder_is_rejected(tmp_path):
+    options = workbook(tmp_path)
+    options["qrcode_subfolder_path"] = str(tmp_path / "QR images")
+    with pytest.raises(ValueError, match="must be relative"):
+        generate_latex(**options)

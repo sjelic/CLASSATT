@@ -59,10 +59,11 @@ def check(page: Page, *, date: str | None = None, time: str | None = None,
 
 
 def latex(*, excel_path: str, excel_sheet: str, course_code: str,
-          qrcode_directory: str, output_path: str) -> CommandResult:
+          qrcode_directory_path: str, qrcode_subfolder_path: str, output_path: str) -> CommandResult:
     from .latex import generate_latex
     result = generate_latex(excel_path=excel_path, excel_sheet=excel_sheet,
-                            course_code=course_code, qrcode_directory=qrcode_directory,
+                            course_code=course_code, qrcode_directory_path=qrcode_directory_path,
+                            qrcode_subfolder_path=qrcode_subfolder_path,
                             output_path=output_path)
     skipped = "\n".join(str(path) for path in result.skipped) or "None"
     return CommandResult(f"LaTeX rebuilt: {result.output_path}; included={result.written}; "
