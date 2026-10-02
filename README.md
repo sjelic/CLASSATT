@@ -198,3 +198,11 @@ Bulk creation processes every row and its JSON summary includes `created`,
 (exit status 0 when there are no failures). Newly created attendance is still
 verified through the checker after submission. CLI date strings are converted to
 date objects before using the calendar picker.
+
+## Inline QR images
+
+QR downloading reads exactly one `img` inside each matched attendance row and
+saves its `data:image/png;base64,...` contents directly as PNG. It does not open
+or click a modal. Rows without images are logged and skipped; rows with multiple
+images raise an error rather than selecting an arbitrary image. Filename and
+output-directory behavior are unchanged.

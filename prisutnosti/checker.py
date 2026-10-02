@@ -147,33 +147,22 @@ class AttendanceChecker:
 
     def _download_qrcode_if_available(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
         logger.info("Checking QR code availability")
-        cells = row.locator("td")
-        if cells.count() < 9:
+        img = row.locator("img")
+        image_count = img.count()
+        if image_count == 0:
+            logger.info("No QR image available for this attendance")
             return
-        status = cells.nth(8)
-        # Only open a QR modal for rows whose status has a modal trigger.
-        trigger = status.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"]')
-        if trigger.count():
-            trigger.first.click()
-        elif status.get_attribute("onclick"):
-            status.click()
-        else:
+        if image_count != 1:
+            raise ValueError(f"Expected exactly one QR image in the attendance row; found {image_count}.")
+        src = img.get_attribute("src") or ""
+        if not src.startswith("data:image/png;base64,"):
+            logger.warning("QR image has no supported PNG data URL; skipping")
             return
-        modal = self.page.locator("#qrModal")
-        expect(modal).to_be_visible()
-        try:
-            img = modal.locator("div.modal-body > img")
-            expect(img).to_be_visible()
-            src = img.get_attribute("src") or ""
-            if src.startswith("data:image/png;base64,"):
-                data = base64.b64decode(src.split(",", 1)[1], validate=True)
-                Path(directory).mkdir(parents=True, exist_ok=True)
-                filepath = Path(directory, self._filename("QRCODE", row_dict, ".png"))
-                filepath.write_bytes(data)
-                logger.info("QR code saved: %s", filepath)
-        finally:
-            modal.locator('[data-dismiss="modal"], [data-bs-dismiss="modal"], button.close').first.click()
-            expect(modal).to_be_hidden()
+        data = base64.b64decode(src.split(",", 1)[1], validate=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        filepath = Path(directory, self._filename("QRCODE", row_dict, ".png"))
+        filepath.write_bytes(data)
+        logger.info("QR code saved: %s", filepath)
 
     def _to_latin(self, text: str) -> str:
         return "".join(CYRILLIC_TO_LATIN.get(ch, ch) for ch in text)
