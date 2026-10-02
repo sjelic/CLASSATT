@@ -10,7 +10,7 @@ from .checker import CHECK_URL
 class LoginError(RuntimeError):
     """Authentication failed; browser actions must not proceed."""
 
-LOGIN_URL = "https://esalter.grf.bg.ac.rs/nastavnik/index.php"
+LOGIN_URL = "https://esalter.grf.bg.ac.rs/nastavnik"
 
 
 class PlaywrightSessionManager:
@@ -31,10 +31,11 @@ class PlaywrightSessionManager:
 
     def _login(self, username: str, password: str, landing_url: str, success_selector: str) -> None:
         self.page.goto(self.login_url, wait_until="domcontentloaded")
-        self.page.locator('#kime, input[name="kime"]').fill(username)
-        self.page.locator('#lozina, input[name="lozinka"]').fill(password)
+        self.page.locator('#navbarResponsive ul[class="navbar-nav ml-auto"] li[class="nav-item"] a').click()
+        self.page.locator('#kime').fill(username)
+        self.page.locator('#lozinka').fill(password)
         self.page.locator("#btnSubMitc").click()
-        self.page.goto(landing_url, wait_until="domcontentloaded")
+
         try:
             expect(self.page.locator(success_selector)).to_be_visible(timeout=30_000)
         except (PlaywrightError, AssertionError) as exc:
