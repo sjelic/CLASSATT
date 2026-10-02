@@ -1,0 +1,40 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{microtype}
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+\graphicspath{{\detokenize{@@IMG_PATH@@}}}
+\pagestyle{empty}
+\captionsetup[figure]{labelformat=empty}
+\usepackage{tocloft}
+\renewcommand{\contentsname}{Листа QR кодова пријаву присутности}
+\setcounter{secnumdepth}{0}
+\setcounter{tocdepth}{1}
+\renewcommand{\cftsecpresnum}{}
+\renewcommand{\cftsecaftersnum}{}
+\usepackage{etoolbox}
+\makeatletter
+\newcommand{\sectionaddtoc}[1]{%
+    \phantomsection%
+    \section*{#1}%
+    \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\subsectionaddtoc}[1]{%
+    \phantomsection%
+    \subsection*{#1}%
+    \addcontentsline{toc}{subsection}{#1}%
+}
+\makeatother
+\usepackage[hidelinks,bookmarks=true,linktoc=all]{hyperref}
+\usepackage{bookmark}
+\bookmarksetup{open,openlevel=2}
+\cftpagenumbersoff{section}
+\IfFileExists{structure.tex}{\input{structure.tex}}{}
+\IfFileExists{commands.tex}{\input{commands.tex}}{}
+\begin{document}
+\tableofcontents
+\thispagestyle{empty}
+@@PAGES@@
+\end{document}
