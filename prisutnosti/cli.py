@@ -54,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.CommandResult:
+def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.CommandResult | None:
     """Translate CLI parameters into operation parameters without browser policy."""
     if args.command == "load":
         return commands.load(excel_path=args.excel_path, excel_sheet=args.excel_sheet)
@@ -96,7 +96,7 @@ def _run_command(args: argparse.Namespace, page: Page | None = None) -> int:
     except Exception as exc:
         logger.error("Command %s failed (%s)", args.command, type(exc).__name__)
         raise
-    code = _log_result(result)
+    code = _log_result(result) if result is not None else 0
     logger.info("Command %s finished with exit status %d", args.command, code)
     return code
 

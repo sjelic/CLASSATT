@@ -78,7 +78,7 @@ class AttendanceChecker:
         list_directory: str | None = None,
         download_qrcode: bool = False,
         qrcode_directory: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> None:
         
         
         logger.info("Opening attendance overview: %s", CHECK_URL)
@@ -94,7 +94,7 @@ class AttendanceChecker:
         self._open_results(query)
         headers = [self._to_latin(text.strip()) for text in
                    self.page.locator("#dataTables-studenti > thead > tr > th").all_text_contents()]
-        results: list[dict[str, Any]] = []
+        found_count = 0
         page_index = 0
         while True:
             rows = self.page.locator("#dataTables-studenti > tbody > tr")
@@ -106,8 +106,8 @@ class AttendanceChecker:
                 cells = [text.strip() for text in row.locator("td").all_text_contents()]
                 row_dict = dict(zip(headers, cells))
                 logger.info("Found attendance row %d on page %d", row_index + 1, page_index + 1)
-                logger.debug("Attendance details: %s", row_dict)
-                results.append(row_dict)
+                logger.info("Attendance details: %s", row_dict)
+                found_count += 1
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
                 if download_list:
@@ -121,8 +121,14 @@ class AttendanceChecker:
             page_index += 1
             logger.info("Reading attendance page %d", page_index + 1)
             self.page.evaluate("index => jQuery('#dataTables-studenti').DataTable().page(index).draw('page')", page_index)
-        logger.info("Found %d matching attendance terms", len(results))
-        return results
+        logger.info("Found %d matching attendance terms", found_count)
+        return
+
+    def exists(self, *, date: str, time: str, course_code: str, room: str) -> bool:
+        """Internal existence query without returning attendance records."""
+        self._open_results(" ".join([date, course_code, room, time]))
+        info = self.page.evaluate("() => jQuery('#dataTables-studenti').DataTable().page.info()")
+        return info["recordsDisplay"] > 0
 
     @staticmethod
     def _filename(prefix: str, row_dict: dict[str, Any], extension: str) -> str:
@@ -145,35 +151,51 @@ class AttendanceChecker:
         pending.value.save_as(filepath)
         logger.info("Attendance list saved: %s", filepath)
 
+    @staticmethod
+    def _available_path(directory: str, filename: str) -> Path:
+        folder = Path(directory)
+        folder.mkdir(parents=True, exist_ok=True)
+        filepath = folder / filename
+        index = 2
+        while filepath.exists():
+            filepath = folder / f"{Path(filename).stem}_{index}{Path(filename).suffix}"
+            index += 1
+        return filepath
+
     def _download_qrcode_if_available(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
         logger.info("Checking QR code availability")
+        # Scope triggers to the current record, rather than selecting every
+        # matching QR element in the table and causing a strict-mode violation.
+        triggers = row.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"]')
         cells = row.locator("td")
-        if cells.count() < 9:
+        fallback = cells.nth(8) if cells.count() >= 9 else None
+        trigger_count = triggers.count()
+        if not trigger_count and (fallback is None or not fallback.get_attribute("onclick")):
+            logger.info("No QR code available for this attendance")
             return
-        status = cells.nth(8)
-        # Only open a QR modal for rows whose status has a modal trigger.
-        trigger = status.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"]')
-        if trigger.count():
-            trigger.first.click()
-        elif status.get_attribute("onclick"):
-            status.click()
-        else:
-            return
-        modal = self.page.locator("#qrModal")
-        expect(modal).to_be_visible()
-        try:
-            img = modal.locator("div.modal-body > img")
-            expect(img).to_be_visible()
-            src = img.get_attribute("src") or ""
-            if src.startswith("data:image/png;base64,"):
-                data = base64.b64decode(src.split(",", 1)[1], validate=True)
-                Path(directory).mkdir(parents=True, exist_ok=True)
-                filepath = Path(directory, self._filename("QRCODE", row_dict, ".png"))
-                filepath.write_bytes(data)
-                logger.info("QR code saved: %s", filepath)
-        finally:
-            modal.locator('[data-dismiss="modal"], [data-bs-dismiss="modal"], button.close').first.click()
-            expect(modal).to_be_hidden()
+        for trigger_index in range(trigger_count or 1):
+            if trigger_count:
+                triggers.nth(trigger_index).click()
+            else:
+                fallback.click()
+            # Hidden modals with the same ID must not match the image lookup.
+            modal = self.page.locator("#qrModal:visible").first
+            expect(modal).to_be_visible()
+            try:
+                images = modal.locator("div.modal-body > img")
+                expect(images.first).to_be_visible()
+                for image_index in range(images.count()):
+                    src = images.nth(image_index).get_attribute("src") or ""
+                    if not src.startswith("data:image/png;base64,"):
+                        logger.warning("QR image has no supported PNG data URL; skipping")
+                        continue
+                    data = base64.b64decode(src.split(",", 1)[1], validate=True)
+                    filepath = self._available_path(directory, self._filename("QRCODE", row_dict, ".png"))
+                    filepath.write_bytes(data)
+                    logger.info("QR code saved: %s", filepath)
+            finally:
+                modal.locator('[data-dismiss="modal"], [data-bs-dismiss="modal"], button.close').first.click()
+                expect(modal).to_be_hidden()
 
     def _to_latin(self, text: str) -> str:
         return "".join(CYRILLIC_TO_LATIN.get(ch, ch) for ch in text)

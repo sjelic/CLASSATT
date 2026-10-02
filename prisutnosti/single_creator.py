@@ -30,7 +30,7 @@ class AttendanceTermCreator:
         if isinstance(date, str):
             date = datetime.strptime(date, "%Y-%m-%d").date()
         search = dict(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
-        if self.checker.check(**search):
+        if self.checker.exists(**search):
             logger.info("Skipping existing attendance: course=%s date=%s time=%s room=%s",
                         course_code, search["date"], time, room)
             return False
@@ -58,7 +58,7 @@ class AttendanceTermCreator:
         logger.info("Submitting attendance form")
         self.page.locator("#btnSubMitc").click()
 
-        created = self.checker.check(**search)
+        created = self.checker.exists(**search)
         if not created:
             logger.error("Created attendance could not be found")
             raise RuntimeError("Attendance term was not created.")
