@@ -78,7 +78,7 @@ class AttendanceChecker:
         list_directory: str | None = None,
         download_qrcode: bool = False,
         qrcode_directory: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> None:
         
         
         logger.info("Opening attendance overview: %s", CHECK_URL)
@@ -94,7 +94,7 @@ class AttendanceChecker:
         self._open_results(query)
         headers = [self._to_latin(text.strip()) for text in
                    self.page.locator("#dataTables-studenti > thead > tr > th").all_text_contents()]
-        results: list[dict[str, Any]] = []
+        found_count = 0
         page_index = 0
         while True:
             rows = self.page.locator("#dataTables-studenti > tbody > tr")
@@ -106,8 +106,8 @@ class AttendanceChecker:
                 cells = [text.strip() for text in row.locator("td").all_text_contents()]
                 row_dict = dict(zip(headers, cells))
                 logger.info("Found attendance row %d on page %d", row_index + 1, page_index + 1)
-                logger.debug("Attendance details: %s", row_dict)
-                results.append(row_dict)
+                logger.info("Attendance details: %s", row_dict)
+                found_count += 1
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
                 if download_list:
@@ -121,8 +121,14 @@ class AttendanceChecker:
             page_index += 1
             logger.info("Reading attendance page %d", page_index + 1)
             self.page.evaluate("index => jQuery('#dataTables-studenti').DataTable().page(index).draw('page')", page_index)
-        logger.info("Found %d matching attendance terms", len(results))
-        return results
+        logger.info("Found %d matching attendance terms", found_count)
+        return
+
+    def exists(self, *, date: str, time: str, course_code: str, room: str) -> bool:
+        """Internal existence query without returning attendance records."""
+        self._open_results(" ".join([date, course_code, room, time]))
+        info = self.page.evaluate("() => jQuery('#dataTables-studenti').DataTable().page.info()")
+        return info["recordsDisplay"] > 0
 
     @staticmethod
     def _filename(prefix: str, row_dict: dict[str, Any], extension: str) -> str:
@@ -144,6 +150,17 @@ class AttendanceChecker:
         filepath = Path(directory, self._filename("PRISUTNOST", row_dict, ".xlsx"))
         pending.value.save_as(filepath)
         logger.info("Attendance list saved: %s", filepath)
+
+    @staticmethod
+    def _available_path(directory: str, filename: str) -> Path:
+        folder = Path(directory)
+        folder.mkdir(parents=True, exist_ok=True)
+        filepath = folder / filename
+        index = 2
+        while filepath.exists():
+            filepath = folder / f"{Path(filename).stem}_{index}{Path(filename).suffix}"
+            index += 1
+        return filepath
 
     def _download_qrcode_if_available(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
         logger.info("Checking QR code availability")

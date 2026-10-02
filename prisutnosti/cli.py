@@ -22,6 +22,10 @@ def build_parser() -> argparse.ArgumentParser:
     load_parser.add_argument("--excel-path", required=True)
     load_parser.add_argument("--excel-sheet", required=True)
 
+    latex_parser = sub.add_parser("latex", help="Rebuild an attendance QR LaTeX booklet from Excel")
+    for option in ("excel-path", "excel-sheet", "course-code", "qrcode-directory-path", "qrcode-subfolder-path", "output-path"):
+        latex_parser.add_argument(f"--{option}", required=True)
+
     sub.add_parser("login", help="Verify login using prompted credentials")
 
     create_term_parser = sub.add_parser("create-term", help="Create a single attendance term")
@@ -50,10 +54,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.CommandResult:
+def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.CommandResult | None:
     """Translate CLI parameters into operation parameters without browser policy."""
     if args.command == "load":
         return commands.load(excel_path=args.excel_path, excel_sheet=args.excel_sheet)
+    if args.command == "latex":
+        return commands.latex(excel_path=args.excel_path, excel_sheet=args.excel_sheet,
+                              course_code=args.course_code, qrcode_directory_path=args.qrcode_directory_path,
+                              qrcode_subfolder_path=args.qrcode_subfolder_path, output_path=args.output_path)
     if args.command == "login":
         return commands.login()
     if page is None:
@@ -88,7 +96,7 @@ def _run_command(args: argparse.Namespace, page: Page | None = None) -> int:
     except Exception as exc:
         logger.error("Command %s failed (%s)", args.command, type(exc).__name__)
         raise
-    code = _log_result(result)
+    code = _log_result(result) if result is not None else 0
     logger.info("Command %s finished with exit status %d", args.command, code)
     return code
 
@@ -97,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("prisutnosti").setLevel(args.log_level)
-    if args.command == "load":
+    if args.command in {"load", "latex"}:
         return _run_command(args)
 
     try:

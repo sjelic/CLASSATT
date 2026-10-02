@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/skip-existing-attendance https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/fix-check-results-and-qr-downloads https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 

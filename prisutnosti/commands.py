@@ -49,10 +49,22 @@ def create(page: Page, *, excel_path: str, excel_sheet: str, course_code: str) -
 def check(page: Page, *, date: str | None = None, time: str | None = None,
           course_code: str | None = None, room: str | None = None,
           download_list: bool = False, list_directory: str | None = None,
-          download_qrcode: bool = False, qrcode_directory: str | None = None) -> CommandResult:
-    result = AttendanceChecker(page).check(
+          download_qrcode: bool = False, qrcode_directory: str | None = None) -> None:
+    AttendanceChecker(page).check(
         date=date, time=time, course_code=course_code, room=room,
         download_list=download_list, list_directory=list_directory,
         download_qrcode=download_qrcode, qrcode_directory=qrcode_directory,
     )
     return CommandResult(json.dumps(result, ensure_ascii=False))
+
+
+def latex(*, excel_path: str, excel_sheet: str, course_code: str,
+          qrcode_directory_path: str, qrcode_subfolder_path: str, output_path: str) -> CommandResult:
+    from .latex import generate_latex
+    result = generate_latex(excel_path=excel_path, excel_sheet=excel_sheet,
+                            course_code=course_code, qrcode_directory_path=qrcode_directory_path,
+                            qrcode_subfolder_path=qrcode_subfolder_path,
+                            output_path=output_path)
+    skipped = "\n".join(str(path) for path in result.skipped) or "None"
+    return CommandResult(f"LaTeX rebuilt: {result.output_path}; included={result.written}; "
+                         f"skipped={len(result.skipped)}\nSkipped QR codes:\n{skipped}")
