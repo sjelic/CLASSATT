@@ -22,17 +22,28 @@ class AttendanceTermCreator:
         room: str,
     ) -> None:
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
-        self.page.locator("#datumprisustvo").fill(date)
-
+        
+        date.year, date.month, date.day  # validate date format
+        self.page.locator("#datumprisustvo").click()
+        
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-days > table > thead > tr > th.datepicker-switch").click()
+        
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-months > table > thead > tr > th.datepicker-switch").click()
+        
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-years > table > tbody > tr > td > span").get_by_text(f"{date.year}").click()
+        
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-months > table > tbody > tr > td > span").get_by_text(f"{date.strftime('%b')}").click()
+        
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-days > table > tbody > tr > td.day:not(.new)").get_by_text(f"{date.day}", exact=True).click()
+        
         self._select_value("#vremeprisustvo", time)
         self._select_value("#salaprisustvo", room)
-        self._select_value("#trajanjelinka", str(link_duration))
-        self._select_value("#aktivacija", activation)
-        self._select_value("#predmet", course_code)
-
+        self._select_value("#trajanjeprisustvo", str(link_duration))
+        self._select_value("#aktivacijaprisustvo", activation)
+        self._select_value("#sifraPredmet", course_code) 
         self.page.locator("#btnSubMitc").click()
 
-        created = self.checker.check(date=date, time=time, course_code=course_code, room=room)
+        created = self.checker.check(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
         if not created:
             raise RuntimeError("Attendance term was not created.")
 
