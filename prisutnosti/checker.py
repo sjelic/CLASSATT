@@ -164,38 +164,22 @@ class AttendanceChecker:
 
     def _download_qrcode_if_available(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
         logger.info("Checking QR code availability")
-        # Scope triggers to the current record, rather than selecting every
-        # matching QR element in the table and causing a strict-mode violation.
-        triggers = row.locator('[data-target="#qrModal"], [data-bs-target="#qrModal"]')
-        cells = row.locator("td")
-        fallback = cells.nth(8) if cells.count() >= 9 else None
-        trigger_count = triggers.count()
-        if not trigger_count and (fallback is None or not fallback.get_attribute("onclick")):
-            logger.info("No QR code available for this attendance")
+        img = row.locator("img")
+        image_count = img.count()
+        if image_count == 0:
+            logger.info("No QR image available for this attendance")
             return
-        for trigger_index in range(trigger_count or 1):
-            if trigger_count:
-                triggers.nth(trigger_index).click()
-            else:
-                fallback.click()
-            # Hidden modals with the same ID must not match the image lookup.
-            modal = self.page.locator("#qrModal:visible").first
-            expect(modal).to_be_visible()
-            try:
-                images = modal.locator("div.modal-body > img")
-                expect(images.first).to_be_visible()
-                for image_index in range(images.count()):
-                    src = images.nth(image_index).get_attribute("src") or ""
-                    if not src.startswith("data:image/png;base64,"):
-                        logger.warning("QR image has no supported PNG data URL; skipping")
-                        continue
-                    data = base64.b64decode(src.split(",", 1)[1], validate=True)
-                    filepath = self._available_path(directory, self._filename("QRCODE", row_dict, ".png"))
-                    filepath.write_bytes(data)
-                    logger.info("QR code saved: %s", filepath)
-            finally:
-                modal.locator('[data-dismiss="modal"], [data-bs-dismiss="modal"], button.close').first.click()
-                expect(modal).to_be_hidden()
+        if image_count != 1:
+            raise ValueError(f"Expected exactly one QR image in the attendance row; found {image_count}.")
+        src = img.get_attribute("src") or ""
+        if not src.startswith("data:image/png;base64,"):
+            logger.warning("QR image has no supported PNG data URL; skipping")
+            return
+        data = base64.b64decode(src.split(",", 1)[1], validate=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        filepath = Path(directory, self._filename("QRCODE", row_dict, ".png"))
+        filepath.write_bytes(data)
+        logger.info("QR code saved: %s", filepath)
 
     def _to_latin(self, text: str) -> str:
         return "".join(CYRILLIC_TO_LATIN.get(ch, ch) for ch in text)
