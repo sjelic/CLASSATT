@@ -46,17 +46,20 @@ def _path_text(value: str) -> str:
 
 
 def generate_latex(*, excel_path: str, excel_sheet: str, course_code: str,
-                   qrcode_directory: str, output_path: str) -> LatexResult:
+                   qrcode_directory_path: str, qrcode_subfolder_path: str, output_path: str) -> LatexResult:
     df = load_terms_dataframe(excel_path, excel_sheet)
     if "ТИП НАСТАВЕ" not in df.columns:
         raise ValueError("Missing required column: ТИП НАСТАВЕ")
-    image_dir = Path(qrcode_directory).resolve()
+    subfolder = Path(qrcode_subfolder_path)
+    if subfolder.is_absolute():
+        raise ValueError("qrcode_subfolder_path must be relative to the LaTeX workspace")
+    image_dir = (Path(qrcode_directory_path) / subfolder).resolve()
     destination = Path(output_path).resolve()
     if destination.suffix.lower() != ".tex":
         raise ValueError("output_path must have a .tex extension")
     if destination == Path(excel_path).resolve():
         raise ValueError("Output must not overwrite the source workbook")
-    image_path = _path_text(image_dir.as_posix().rstrip("/") + "/")
+    image_path = _path_text(subfolder.as_posix().rstrip("/") + "/")
     records = []
     for index, row in df.iterrows():
         kind = row["ТИП НАСТАВЕ"]

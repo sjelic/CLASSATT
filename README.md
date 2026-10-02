@@ -208,5 +208,57 @@ image is scoped to its row and visible modal, and the modal is closed before the
 next trigger or attendance is processed. Existing QR filenames are preserved;
 additional images receive numbered suffixes instead of overwriting earlier files.
 
-Creation uses a separate boolean `exists` query for duplicate detection and
-post-creation verification, without returning record collections.
+```bash
+prisutnosti latex \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --qrcode-directory-path . \
+  --qrcode-subfolder-path qr \
+  --output-path ./attendance.tex
+```
+
+The command always rebuilds the complete UTF-8 `.tex` file, never appends, and
+replaces it only after successful generation. Existing output survives input
+validation errors. Each existing QR image gets one page after the table of
+contents. Missing QR files produce warnings and a final summary listing every
+skipped path; generation still succeeds with exit code 0.
+
+Rows are ordered chronologically and grouped by the registration date from
+`ПОЧЕТАК ПРИЈАВЕ` and `ТИП НАСТАВЕ`. Each type has its own daily-session counter
+(one increment per date/type group) and its own continuous class counter across
+dates. Counters include skipped rows, preserving the calendar's numbering.
+Rooms come from `САЛА`; class start/end times come from `ОД`/`ДО` in `HH:MM`.
+Serbian dates use month names such as `5. novembar 2025.`. Teaching-type values
+are used as written in Excel.
+
+Expected filenames use registration date/time, including seconds:
+`QRCODE_B3I3VP_2026-10-08_13_15_00_322.png`. Image paths are resolved and checked
+before rendering. QR naming uses the same filename helper as QR downloads.
+LaTeX-sensitive heading text is escaped.
+
+The bundled template follows the supplied page layout. Cyrillic support uses
+XeLaTeX or LuaLaTeX with the DejaVu Serif font. `structure.tex` and `commands.tex`
+are included if present in the LaTeX working directory. `linktoc=all` replaces
+the template's unsupported `linktoc=subsection` option. Compile twice from the
+output directory to populate the table of contents:
+
+```bash
+xelatex attendance.tex
+xelatex attendance.tex
+```
+
+No PDF compilation is performed by the CLI. Paths containing `%`, braces, or
+line breaks are rejected because they cannot safely be used in the image macros.
+
+Each registration-date/teaching-type group has one section heading, immediately
+before its first available QR subsection. Later classes get subsections and new
+pages without repeating the section. Groups with no QR files have no heading.
+
+For `latex`, `--qrcode-directory-path` is the base directory used for filesystem
+checks and `--qrcode-subfolder-path` is the relative QR folder. The resolved join
+of these arguments locates images on disk. Only the subfolder (with forward
+slashes and a trailing slash) is written to `\graphicspath`, keeping the LaTeX
+source portable. Compile from a LaTeX workspace where that subfolder exists.
+Absolute subfolder paths are rejected. The `check` command's download-directory
+argument remains `--qrcode-directory`.

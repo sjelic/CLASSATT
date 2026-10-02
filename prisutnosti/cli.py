@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     load_parser.add_argument("--excel-sheet", required=True)
 
     latex_parser = sub.add_parser("latex", help="Rebuild an attendance QR LaTeX booklet from Excel")
-    for option in ("excel-path", "excel-sheet", "course-code", "qrcode-directory", "output-path"):
+    for option in ("excel-path", "excel-sheet", "course-code", "qrcode-directory-path", "qrcode-subfolder-path", "output-path"):
         latex_parser.add_argument(f"--{option}", required=True)
 
     sub.add_parser("login", help="Verify login using prompted credentials")
@@ -60,8 +60,8 @@ def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.Co
         return commands.load(excel_path=args.excel_path, excel_sheet=args.excel_sheet)
     if args.command == "latex":
         return commands.latex(excel_path=args.excel_path, excel_sheet=args.excel_sheet,
-                              course_code=args.course_code, qrcode_directory=args.qrcode_directory,
-                              output_path=args.output_path)
+                              course_code=args.course_code, qrcode_directory_path=args.qrcode_directory_path,
+                              qrcode_subfolder_path=args.qrcode_subfolder_path, output_path=args.output_path)
     if args.command == "login":
         return commands.login()
     if page is None:
