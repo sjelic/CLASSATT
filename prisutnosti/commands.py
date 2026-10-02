@@ -56,3 +56,14 @@ def check(page: Page, *, date: str | None = None, time: str | None = None,
         download_qrcode=download_qrcode, qrcode_directory=qrcode_directory,
     )
     return CommandResult(json.dumps(result, ensure_ascii=False))
+
+
+def latex(*, excel_path: str, excel_sheet: str, course_code: str,
+          qrcode_directory: str, output_path: str) -> CommandResult:
+    from .latex import generate_latex
+    result = generate_latex(excel_path=excel_path, excel_sheet=excel_sheet,
+                            course_code=course_code, qrcode_directory=qrcode_directory,
+                            output_path=output_path)
+    skipped = "\n".join(str(path) for path in result.skipped) or "None"
+    return CommandResult(f"LaTeX rebuilt: {result.output_path}; included={result.written}; "
+                         f"skipped={len(result.skipped)}\nSkipped QR codes:\n{skipped}")

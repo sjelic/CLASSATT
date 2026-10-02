@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/skip-existing-attendance https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/generate-attendance-latex https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -198,3 +198,51 @@ Bulk creation processes every row and its JSON summary includes `created`,
 (exit status 0 when there are no failures). Newly created attendance is still
 verified through the checker after submission. CLI date strings are converted to
 date objects before using the calendar picker.
+
+## Generate a LaTeX QR booklet
+
+Use the same workbook and sheet as bulk attendance creation, with the additional
+required column `ТИП НАСТАВЕ` (for example `PREDAVANJE`, `VEŽBE`, `KOLOKVIJUM`).
+This command is local and does not prompt for credentials or launch Edge:
+
+```bash
+prisutnosti latex \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --qrcode-directory ./qr \
+  --output-path ./attendance.tex
+```
+
+The command always rebuilds the complete UTF-8 `.tex` file, never appends, and
+replaces it only after successful generation. Existing output survives input
+validation errors. Each existing QR image gets one page after the table of
+contents. Missing QR files produce warnings and a final summary listing every
+skipped path; generation still succeeds with exit code 0.
+
+Rows are ordered chronologically and grouped by the registration date from
+`ПОЧЕТАК ПРИЈАВЕ` and `ТИП НАСТАВЕ`. Each type has its own daily-session counter
+(one increment per date/type group) and its own continuous class counter across
+dates. Counters include skipped rows, preserving the calendar's numbering.
+Rooms come from `САЛА`; class start/end times come from `ОД`/`ДО` in `HH:MM`.
+Serbian dates use month names such as `5. novembar 2025.`. Teaching-type values
+are used as written in Excel.
+
+Expected filenames use registration date/time, including seconds:
+`QRCODE_B3I3VP_2026-10-08_13_15_00_322.png`. Image paths are resolved and checked
+before rendering. QR naming uses the same filename helper as QR downloads.
+LaTeX-sensitive heading text is escaped.
+
+The bundled template follows the supplied page layout. Cyrillic support uses
+XeLaTeX or LuaLaTeX with the DejaVu Serif font. `structure.tex` and `commands.tex`
+are included if present in the LaTeX working directory. `linktoc=all` replaces
+the template's unsupported `linktoc=subsection` option. Compile twice from the
+output directory to populate the table of contents:
+
+```bash
+xelatex attendance.tex
+xelatex attendance.tex
+```
+
+No PDF compilation is performed by the CLI. Paths containing `%`, braces, or
+line breaks are rejected because they cannot safely be used in the image macros.
