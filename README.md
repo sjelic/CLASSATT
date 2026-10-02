@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/generate-attendance-latex https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/fix-check-results-and-qr-downloads https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -199,11 +199,14 @@ Bulk creation processes every row and its JSON summary includes `created`,
 verified through the checker after submission. CLI date strings are converted to
 date objects before using the calendar picker.
 
-## Generate a LaTeX QR booklet
+## Checking and downloading multiple results
 
-Use the same workbook and sheet as bulk attendance creation, with the additional
-required column `ТИП НАСТАВЕ` (for example `PREDAVANJE`, `VEŽBE`, `KOLOKVIJUM`).
-This command is local and does not prompt for credentials or launch Edge:
+`check` logs each matching attendance record at INFO and returns `None`; the CLI
+no longer logs a JSON array of records. Every matching row on every filtered page
+is processed for both attendance-list and QR-code downloads. Each QR trigger and
+image is scoped to its row and visible modal, and the modal is closed before the
+next trigger or attendance is processed. Existing QR filenames are preserved;
+additional images receive numbered suffixes instead of overwriting earlier files.
 
 ```bash
 prisutnosti latex \
