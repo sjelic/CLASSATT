@@ -49,10 +49,10 @@ def create(page: Page, *, excel_path: str, excel_sheet: str, course_code: str) -
 def check(page: Page, *, date: str | None = None, time: str | None = None,
           course_code: str | None = None, room: str | None = None,
           download_list: bool = False, list_directory: str | None = None,
-          download_qrcode: bool = False, qrcode_directory: str | None = None) -> CommandResult:
-    result = AttendanceChecker(page).check(
+          download_qrcode: bool = False, qrcode_directory: str | None = None) -> None:
+    AttendanceChecker(page).check(
         date=date, time=time, course_code=course_code, room=room,
         download_list=download_list, list_directory=list_directory,
         download_qrcode=download_qrcode, qrcode_directory=qrcode_directory,
     )
-    return CommandResult(json.dumps(result, ensure_ascii=False))
+    return

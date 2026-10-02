@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass
-import logging
 
 from .loader import dataframe_to_terms, load_terms_dataframe
 from .single_creator import AttendanceTermCreator
@@ -45,8 +44,12 @@ class BulkAttendanceCreator:
                     activation=term.activation,
                     room=term.room,
                 )
-                created += 1
-                logger.info("Attendance row %d created", index)
+                if was_created is False:
+                    skipped += 1
+                    logger.info("Attendance row %d skipped: already exists", index)
+                else:
+                    created += 1
+                    logger.info("Attendance row %d created", index)
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 logger.error("Attendance row %d failed: %s", index, exc)
