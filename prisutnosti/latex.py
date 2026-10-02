@@ -74,6 +74,7 @@ def generate_latex(*, excel_path: str, excel_sheet: str, course_code: str,
     pages, skipped = [], []
     for (_, kind), group in groups.items():
         session_counts[kind] += 1
+        section_written = False
         for registration, start, end, _, room in group:
             class_counts[kind] += 1
             filename = AttendanceChecker._filename("QRCODE", {
@@ -89,14 +90,16 @@ def generate_latex(*, excel_path: str, excel_sheet: str, course_code: str,
             date_text = f"{registration.day}. {MONTHS[registration.month - 1]} {registration.year}."
             heading = _escape(f"{session_counts[kind]}. {kind}: {date_text} Sala: {room}")
             subheading = _escape(f"{class_counts[kind]}. čas, {start:%H:%M} - {end:%H:%M}")
+            section = "" if section_written else f"\\sectionaddtoc{{{heading}}}\n"
             pages.append(
                 "\\newpage\n"
-                f"\\sectionaddtoc{{{heading}}}\n"
-                f"\\subsectionaddtoc{{{subheading}}}\n"
+                + section
+                + f"\\subsectionaddtoc{{{subheading}}}\n"
                 "\\vspace{3cm}\n\\begin{center}\n"
                 f"\\includegraphics[width=0.85\\textwidth]{{\\detokenize{{{filename}}}}}\n"
                 "\\end{center}\n"
             )
+            section_written = True
             logger.info("Adding QR page: %s", filename)
     template = files("prisutnosti").joinpath("templates/attendance.tex").read_text(encoding="utf-8")
     content = template.replace("@@IMG_PATH@@", image_path).replace("@@PAGES@@", "\n".join(pages))

@@ -246,3 +246,7 @@ xelatex attendance.tex
 
 No PDF compilation is performed by the CLI. Paths containing `%`, braces, or
 line breaks are rejected because they cannot safely be used in the image macros.
+
+Each registration-date/teaching-type group has one section heading, immediately
+before its first available QR subsection. Later classes get subsections and new
+pages without repeating the section. Groups with no QR files have no heading.

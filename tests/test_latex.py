@@ -38,6 +38,8 @@ def test_booklet_rebuilds_idempotently_and_keeps_calendar_counters(tmp_path, cap
     assert result.skipped[0].name == "QRCODE_B3I3VP_2026-10-09_13_15_00_322.png"
     assert content.count("\\includegraphics[") == 4
     assert content.count("\\newpage") == 4
+    assert content.count("\\sectionaddtoc{") == 3
+    assert content.count("\\subsectionaddtoc{") == 4
     assert "1. PREDAVANJE: 8. oktobar 2026. Sala: 322" in content
     assert "1. VEŽBE: 8. oktobar 2026. Sala: 322" in content
     assert "3. PREDAVANJE: 5. novembar 2026. Sala: 322" in content
@@ -82,3 +84,13 @@ def test_cli_generates_without_login_and_reports_skipped_files(tmp_path, monkeyp
     assert cli.main(arguments) == 0
     assert "included=4; skipped=1" in caplog.text
     assert "Skipped QR codes:" in caplog.text
+
+
+def test_section_precedes_first_available_subsection_when_first_qr_is_missing(tmp_path):
+    options = workbook(tmp_path)
+    (Path(options["qrcode_directory"]) / "QRCODE_B3I3VP_2026-10-08_13_15_00_322.png").unlink()
+    result = generate_latex(**options)
+    content = result.output_path.read_text()
+    assert result.written == 3
+    assert content.count("\\sectionaddtoc{") == 3
+    assert "\\sectionaddtoc{1. PREDAVANJE: 8. oktobar 2026. Sala: 322}\n\\subsectionaddtoc{2. čas" in content
