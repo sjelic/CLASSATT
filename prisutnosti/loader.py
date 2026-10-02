@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_COLUMNS = ["ОД", "ДО", "САЛА", "ПОЧЕТАК ПРИЈАВЕ", "ТРАЈАЊЕ ЛИНКА", "АКТИВАЦИЈА"]
 
@@ -20,13 +24,16 @@ class LoadedTerm:
 
 def load_terms_dataframe(excel_path: str, excel_sheet: str) -> pd.DataFrame:
     """Load the attendance table from an Excel workbook sheet into a DataFrame."""
+    logger.info("Loading Excel workbook %s, sheet %s", excel_path, excel_sheet)
     df = pd.read_excel(excel_path, sheet_name=excel_sheet)
     validate_terms_dataframe(df)
+    logger.info("Loaded and validated %d attendance rows", len(df))
     return df
 
 
 def validate_terms_dataframe(df: pd.DataFrame) -> None:
     """Validate required structure and temporal constraints for loaded terms."""
+    logger.info("Validating %d attendance rows", len(df))
     missing = [column for column in REQUIRED_COLUMNS if column not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
@@ -70,4 +77,5 @@ def dataframe_to_terms(df: pd.DataFrame) -> list[LoadedTerm]:
                 activation=str(row["АКТИВАЦИЈА"]),
             )
         )
+    logger.info("Prepared %d attendance terms", len(terms))
     return terms

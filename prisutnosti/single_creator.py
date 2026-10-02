@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from playwright.sync_api import Page
 
 from .checker import AttendanceChecker
+
+logger = logging.getLogger(__name__)
 
 CREATE_URL = "https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php"
 
@@ -21,8 +25,11 @@ class AttendanceTermCreator:
         activation: str,
         room: str,
     ) -> None:
+        logger.info("Creating attendance: course=%s date=%s time=%s room=%s", course_code, date, time, room)
+        logger.info("Opening creation page: %s", CREATE_URL)
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
         
+        logger.info("Selecting attendance date")
         date.year, date.month, date.day  # validate date format
         self.page.locator("#datumprisustvo").click()
         
@@ -41,13 +48,18 @@ class AttendanceTermCreator:
         self._select_value("#trajanjeprisustvo", str(link_duration))
         self._select_value("#aktivacijaprisustvo", activation)
         self._select_value("#sifraPredmet", course_code) 
+        logger.info("Submitting attendance form")
         self.page.locator("#btnSubMitc").click()
 
+        logger.info("Finding the created attendance for verification")
         created = self.checker.check(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
         if not created:
+            logger.error("Created attendance could not be found")
             raise RuntimeError("Attendance term was not created.")
+        logger.info("Attendance creation verified")
 
     def _select_value(self, selector: str, value: str) -> None:
+        logger.info("Selecting %s = %s", selector, value)
         element = self.page.locator(selector)
         values = element.locator("option").evaluate_all("options => options.map(option => option.value)")
         if value not in values:

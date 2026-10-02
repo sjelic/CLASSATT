@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/refactor-command-orchestration https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/add-operation-logging https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -180,8 +180,25 @@ pytest
 
 ## Code organization
 
-- `cli.py`: argument parsing, authentication before dispatch, console output, and exit status.
+- `cli.py`: argument parsing, authentication before dispatch, logging, and exit status.
 - `commands.py`: typed command parameters and operation results, independent of argparse.
 - `browser.py`: Edge startup and cleanup for the lifetime of a command.
 - `session.py`: login submission and authentication verification; no landing-page parameter.
 - `single_creator.py`, `bulk_creator.py`, `checker.py`, `loader.py`: existing operation logic and navigation.
+
+## Logging
+
+CLI progress, results, and errors use Python logging with timestamp, severity,
+and module name. INFO is the default. Use `--log-level` before the command:
+
+```bash
+prisutnosti --log-level DEBUG check --course-code MAT101
+```
+
+Logs cover browser startup/cleanup, login submission and verification, Excel
+loading/validation, form selection/submission, creation verification, bulk row
+results, attendance searches/pagination, and list/QR downloads. Detailed attendance
+rows are logged at DEBUG. Passwords and usernames are not logged. Output goes to
+stderr; command exit codes are unchanged. Credential prompts and argparse help
+remain interactive terminal output. Library callers can configure Python logging
+through their own application.
