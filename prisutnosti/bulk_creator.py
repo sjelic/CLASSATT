@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 
 from .loader import dataframe_to_terms, load_terms_dataframe
 from .single_creator import AttendanceTermCreator
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class BulkCreateResult:
@@ -18,6 +22,7 @@ class BulkAttendanceCreator:
         self.term_creator = term_creator
 
     def create_from_excel(self, excel_path: str, excel_sheet: str, course_code: str) -> BulkCreateResult:
+        logger.info("Starting bulk attendance creation for course %s", course_code)
         df = load_terms_dataframe(excel_path, excel_sheet)
         terms = dataframe_to_terms(df)
 
@@ -26,6 +31,7 @@ class BulkAttendanceCreator:
         errors: list[str] = []
 
         for index, term in enumerate(terms, start=1):
+            logger.info("Creating attendance row %d of %d", index, len(terms))
             try:
                 self.term_creator.create_term(
                     date=term.registration_start,
@@ -36,10 +42,13 @@ class BulkAttendanceCreator:
                     room=term.room,
                 )
                 created += 1
+                logger.info("Attendance row %d created", index)
             except Exception as exc:  # noqa: BLE001
                 failed += 1
+                logger.error("Attendance row %d failed: %s", index, exc)
                 errors.append(f"Row {index}: {exc}")
             
             break
 
+        logger.info("Bulk creation finished: created=%d failed=%d", created, failed)
         return BulkCreateResult(created=created, failed=failed, errors=errors)

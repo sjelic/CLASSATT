@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
+
 import argparse
-import sys
 
 from playwright.sync_api import Page
 
@@ -9,9 +10,12 @@ from . import commands
 from .browser import browser_page
 from .session import AUTHENTICATED_SELECTOR, LoginError, PlaywrightSessionManager, prompt_credentials
 
+logger = logging.getLogger(__name__)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prisutnosti", description="Attendance management CLI")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO")
     sub = parser.add_subparsers(dest="command", required=True)
 
     load_parser = sub.add_parser("load", help="Load and validate terms from Excel")
@@ -72,20 +76,34 @@ def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.Co
     raise ValueError(f"Unknown command: {args.command}")
 
 
-def _print_result(result: commands.CommandResult) -> int:
-    print(result.output)
+def _log_result(result: commands.CommandResult) -> int:
+    logger.log(logging.INFO if result.exit_code == 0 else logging.ERROR, "%s", result.output)
     return result.exit_code
+
+
+def _run_command(args: argparse.Namespace, page: Page | None = None) -> int:
+    logger.info("Starting command: %s", args.command)
+    try:
+        result = _dispatch(args, page)
+    except Exception as exc:
+        logger.error("Command %s failed (%s)", args.command, type(exc).__name__)
+        raise
+    code = _log_result(result)
+    logger.info("Command %s finished with exit status %d", args.command, code)
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("prisutnosti").setLevel(args.log_level)
     if args.command == "load":
-        return _print_result(_dispatch(args))
+        return _run_command(args)
 
     try:
         username, password = prompt_credentials()
     except ValueError as exc:
-        print(f"Login failed: {exc}", file=sys.stderr)
+        logger.error("Login failed: %s", exc)
         return 1
     with browser_page() as page:
         try:
@@ -93,9 +111,9 @@ def main(argv: list[str] | None = None) -> int:
                 username, password, success_selector=AUTHENTICATED_SELECTOR,
             )
         except LoginError as exc:
-            print(str(exc), file=sys.stderr)
+            logger.error("%s", exc)
             return 1
-        return _print_result(_dispatch(args, page))
+        return _run_command(args, page)
 
 
 if __name__ == "__main__":

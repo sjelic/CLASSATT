@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 import base64
 import re
 from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import Page, Locator, expect
+
+logger = logging.getLogger(__name__)
 
 CHECK_URL = "https://esalter.grf.bg.ac.rs/nastavnik/form_pregled_prisustvo.php"
 
@@ -50,6 +54,7 @@ class AttendanceChecker:
         self.page = page
 
     def _open_results(self, query: str, page_index: int = 0) -> None:
+        logger.info("Opening attendance overview: %s", CHECK_URL)
         self.page.goto(CHECK_URL, wait_until="domcontentloaded")
         expect(self.page.locator("#dataTables-studenti_filter input")).to_be_visible()
         self.page.locator("#dataTables-studenti_filter input").fill(query)
@@ -76,6 +81,7 @@ class AttendanceChecker:
     ) -> list[dict[str, Any]]:
         
         
+        logger.info("Opening attendance overview: %s", CHECK_URL)
         self.page.goto(CHECK_URL, wait_until="domcontentloaded")
         
         
@@ -84,7 +90,7 @@ class AttendanceChecker:
         if download_qrcode and not qrcode_directory:
             raise ValueError("qrcode_directory is required when downloading QR codes.")
         query = " ".join(value for value in [date, course_code, room, time] if value)
-        print(f"Searching for attendance terms matching: {query}")
+        logger.info("Finding attendance terms matching: %s", query)
         self._open_results(query)
         headers = [self._to_latin(text.strip()) for text in
                    self.page.locator("#dataTables-studenti > thead > tr > th").all_text_contents()]
@@ -99,7 +105,8 @@ class AttendanceChecker:
                     continue
                 cells = [text.strip() for text in row.locator("td").all_text_contents()]
                 row_dict = dict(zip(headers, cells))
-                print(row_dict)
+                logger.info("Found attendance row %d on page %d", row_index + 1, page_index + 1)
+                logger.debug("Attendance details: %s", row_dict)
                 results.append(row_dict)
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
@@ -112,7 +119,9 @@ class AttendanceChecker:
             if page_index + 1 >= info["pages"]:
                 break
             page_index += 1
+            logger.info("Reading attendance page %d", page_index + 1)
             self.page.evaluate("index => jQuery('#dataTables-studenti').DataTable().page(index).draw('page')", page_index)
+        logger.info("Found %d matching attendance terms", len(results))
         return results
 
     @staticmethod
@@ -122,17 +131,22 @@ class AttendanceChecker:
         return prefix + "_" + "_".join(re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", part) for part in parts) + extension
 
     def _download_list(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
+        logger.info("Opening attendance list report")
         row.locator('#raporti_prisustvo_id input[value="СПИСАК СТУДЕНАТА"]').click()
         export = self.page.locator(
             "#dataTables-studenti_wrapper > div.dt-buttons.btn-group > "
             "button.btn.btn-secondary.buttons-excel.buttons-html5"
         )
+        logger.info("Downloading attendance list")
         with self.page.expect_download() as pending:
             export.click()
         Path(directory).mkdir(parents=True, exist_ok=True)
-        pending.value.save_as(Path(directory, self._filename("PRISUTNOST", row_dict, ".xlsx")))
+        filepath = Path(directory, self._filename("PRISUTNOST", row_dict, ".xlsx"))
+        pending.value.save_as(filepath)
+        logger.info("Attendance list saved: %s", filepath)
 
     def _download_qrcode_if_available(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
+        logger.info("Checking QR code availability")
         cells = row.locator("td")
         if cells.count() < 9:
             return
@@ -154,7 +168,9 @@ class AttendanceChecker:
             if src.startswith("data:image/png;base64,"):
                 data = base64.b64decode(src.split(",", 1)[1], validate=True)
                 Path(directory).mkdir(parents=True, exist_ok=True)
-                Path(directory, self._filename("QRCODE", row_dict, ".png")).write_bytes(data)
+                filepath = Path(directory, self._filename("QRCODE", row_dict, ".png"))
+                filepath.write_bytes(data)
+                logger.info("QR code saved: %s", filepath)
         finally:
             modal.locator('[data-dismiss="modal"], [data-bs-dismiss="modal"], button.close').first.click()
             expect(modal).to_be_hidden()

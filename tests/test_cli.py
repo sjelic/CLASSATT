@@ -6,7 +6,7 @@ import pytest
 from prisutnosti import cli
 
 
-def test_cli_load_command(tmp_path, capsys) -> None:
+def test_cli_load_command(tmp_path, caplog) -> None:
     excel = tmp_path / "terms.xlsx"
     df = pd.DataFrame(
         {
@@ -21,13 +21,13 @@ def test_cli_load_command(tmp_path, capsys) -> None:
     df.to_excel(excel, sheet_name="Data", index=False)
 
     rc = cli.main(["load", "--excel-path", str(excel), "--excel-sheet", "Data"])
-    out = capsys.readouterr().out
+    out = caplog.text
 
     assert rc == 0
     assert "Loaded 1 rows successfully." in out
 
 
-def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, capsys):
+def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, caplog):
     from contextlib import contextmanager
     from prisutnosti.bulk_creator import BulkCreateResult
 
@@ -63,7 +63,7 @@ def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, ca
     monkeypatch.setattr(cli.commands, "BulkAttendanceCreator", Bulk)
     assert cli.main(["create", "--excel-path", "terms.xlsx", "--excel-sheet", "Data", "--course-code", "ABC"]) == 0
     assert events == ["login", "create", "closed"]
-    assert '"created": 1' in capsys.readouterr().out
+    assert '"created": 1' in caplog.text
 
 
 @pytest.mark.parametrize("arguments", [
@@ -73,7 +73,7 @@ def test_create_authenticates_before_bulk_and_serializes_summary(monkeypatch, ca
      "--course-code", "ABC", "--activation", "selected", "--room", "A1"],
     ["check"],
 ])
-def test_login_failure_reports_error_closes_browser_and_blocks_actions(monkeypatch, capsys, arguments):
+def test_login_failure_reports_error_closes_browser_and_blocks_actions(monkeypatch, caplog, arguments):
     from contextlib import contextmanager
 
     events = []
@@ -102,7 +102,7 @@ def test_login_failure_reports_error_closes_browser_and_blocks_actions(monkeypat
     monkeypatch.setattr(cli.commands, "BulkAttendanceCreator", forbidden)
     monkeypatch.setattr(cli.commands, "AttendanceChecker", forbidden)
     assert cli.main(arguments) == 1
-    assert "Login failed" in capsys.readouterr().err
+    assert "Login failed" in caplog.text
     assert events == ["closed"]
 
 
@@ -133,7 +133,7 @@ def test_dispatch_preserves_operation_parameters(monkeypatch, arguments, operati
         handler.assert_called_once_with(page, **parameters)
 
 
-def test_load_never_prompts_or_opens_browser(monkeypatch, capsys):
+def test_load_never_prompts_or_opens_browser(monkeypatch, caplog):
     def forbidden(*args, **kwargs):
         pytest.fail("Load must not prompt or start a browser")
 
@@ -141,4 +141,4 @@ def test_load_never_prompts_or_opens_browser(monkeypatch, capsys):
     monkeypatch.setattr(cli, "browser_page", forbidden)
     monkeypatch.setattr(cli.commands, "load", lambda **kwargs: cli.commands.CommandResult("Loaded 1 rows successfully."))
     assert cli.main(["load", "--excel-path", "terms.xlsx", "--excel-sheet", "Data"]) == 0
-    assert capsys.readouterr().out == "Loaded 1 rows successfully.\n"
+    assert "Loaded 1 rows successfully." in caplog.text
