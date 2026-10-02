@@ -180,7 +180,7 @@ pytest
 
 ## Code organization
 
-- `cli.py`: argument parsing, authentication before dispatch, console output, and exit status.
+- `cli.py`: argument parsing, authentication before dispatch, logging, and exit status.
 - `commands.py`: typed command parameters and operation results, independent of argparse.
 - `browser.py`: Edge startup and cleanup for the lifetime of a command.
 - `session.py`: login submission and authentication verification; no landing-page parameter.

@@ -36,6 +36,7 @@ class AttendanceTermCreator:
             return False
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
         
+        logger.info("Selecting attendance date")
         date.year, date.month, date.day  # validate date format
         self.page.locator("#datumprisustvo").click()
         
@@ -54,14 +55,17 @@ class AttendanceTermCreator:
         self._select_value("#trajanjeprisustvo", str(link_duration))
         self._select_value("#aktivacijaprisustvo", activation)
         self._select_value("#sifraPredmet", course_code) 
+        logger.info("Submitting attendance form")
         self.page.locator("#btnSubMitc").click()
 
         created = self.checker.check(**search)
         if not created:
+            logger.error("Created attendance could not be found")
             raise RuntimeError("Attendance term was not created.")
         return True
 
     def _select_value(self, selector: str, value: str) -> None:
+        logger.info("Selecting %s = %s", selector, value)
         element = self.page.locator(selector)
         values = element.locator("option").evaluate_all("options => options.map(option => option.value)")
         if value not in values:
