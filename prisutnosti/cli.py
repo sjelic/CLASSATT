@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
-import json
 import sys
-from contextlib import contextmanager
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Page
 
-from .bulk_creator import BulkAttendanceCreator
-from .checker import AttendanceChecker, CHECK_URL
-from .loader import load_terms_dataframe
-from .session import LoginError, PlaywrightSessionManager, prompt_credentials
-from .single_creator import AttendanceTermCreator, CREATE_URL
+from . import commands
+from .browser import browser_page
+from .session import AUTHENTICATED_SELECTOR, LoginError, PlaywrightSessionManager, prompt_credentials
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,87 +46,56 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-@contextmanager
-def _browser_page():
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="msedge", headless=False)
-        try:
-            context = browser.new_context(accept_downloads=True)
-            page = context.new_page()
-            page.set_default_timeout(30_000)
-            yield page
-        finally:
-            browser.close()
+def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.CommandResult:
+    """Translate CLI parameters into operation parameters without browser policy."""
+    if args.command == "load":
+        return commands.load(excel_path=args.excel_path, excel_sheet=args.excel_sheet)
+    if args.command == "login":
+        return commands.login()
+    if page is None:
+        raise ValueError("This command requires an authenticated browser page.")
+    if args.command == "create-term":
+        return commands.create_term(
+            page, date=args.date, time=args.time, link_duration=args.link_duration,
+            course_code=args.course_code, activation=args.activation, room=args.room,
+        )
+    if args.command == "create":
+        return commands.create(
+            page, excel_path=args.excel_path, excel_sheet=args.excel_sheet, course_code=args.course_code,
+        )
+    if args.command == "check":
+        return commands.check(
+            page, date=args.date, time=args.time, course_code=args.course_code, room=args.room,
+            download_list=args.download_list == "yes", list_directory=args.list_directory,
+            download_qrcode=args.download_qrcode == "yes", qrcode_directory=args.qrcode_directory,
+        )
+    raise ValueError(f"Unknown command: {args.command}")
+
+
+def _print_result(result: commands.CommandResult) -> int:
+    print(result.output)
+    return result.exit_code
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
+    args = build_parser().parse_args(argv)
     if args.command == "load":
-        df = load_terms_dataframe(args.excel_path, args.excel_sheet)
-        print(f"Loaded {len(df)} rows successfully.")
-        return 0
+        return _print_result(_dispatch(args))
 
     try:
         username, password = prompt_credentials()
     except ValueError as exc:
         print(f"Login failed: {exc}", file=sys.stderr)
         return 1
-    with _browser_page() as page:
-        creating = args.command in {"create-term", "create"}
+    with browser_page() as page:
         try:
             PlaywrightSessionManager(page).login(
-                username, password,
-                landing_url=CREATE_URL if creating else CHECK_URL,
-                success_selector="#navbarDropdownPortfolio",
+                username, password, success_selector=AUTHENTICATED_SELECTOR,
             )
         except LoginError as exc:
             print(str(exc), file=sys.stderr)
             return 1
-        if args.command == "login":
-            print("Login verified.")
-            return 0
-
-        if args.command == "create-term":
-            creator = AttendanceTermCreator(page)
-            creator.create_term(
-                date=args.date,
-                time=args.time,
-                link_duration=args.link_duration,
-                course_code=args.course_code,
-                activation=args.activation,
-                room=args.room,
-            )
-            print("Attendance term created.")
-            return 0
-
-        if args.command == "create":
-            result = BulkAttendanceCreator(AttendanceTermCreator(page)).create_from_excel(
-                excel_path=args.excel_path,
-                excel_sheet=args.excel_sheet,
-                course_code=args.course_code,
-            )
-            print(json.dumps(asdict(result), ensure_ascii=False))
-            return 0 if result.failed == 0 else 1
-
-        if args.command == "check":
-            checker = AttendanceChecker(page)
-            result = checker.check(
-                date=args.date,
-                time=args.time,
-                course_code=args.course_code,
-                room=args.room,
-                download_list=args.download_list == "yes",
-                list_directory=args.list_directory,
-                download_qrcode=args.download_qrcode == "yes",
-                qrcode_directory=args.qrcode_directory,
-            )
-            print(json.dumps(result, ensure_ascii=False))
-            return 0
-
-        parser.error("Unknown command")
-        return 2
+        return _print_result(_dispatch(args, page))
 
 
 if __name__ == "__main__":
