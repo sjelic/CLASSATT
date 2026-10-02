@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 from .loader import dataframe_to_terms, load_terms_dataframe
 from .single_creator import AttendanceTermCreator
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -11,6 +15,7 @@ class BulkCreateResult:
     created: int
     failed: int
     errors: list[str]
+    skipped: int = 0
 
 
 class BulkAttendanceCreator:
@@ -23,11 +28,12 @@ class BulkAttendanceCreator:
 
         created = 0
         failed = 0
+        skipped = 0
         errors: list[str] = []
 
         for index, term in enumerate(terms, start=1):
             try:
-                self.term_creator.create_term(
+                was_created = self.term_creator.create_term(
                     date=term.registration_start,
                     time=term.registration_start.strftime("%H:%M:%S"),
                     link_duration=term.link_duration_minutes,
@@ -35,11 +41,14 @@ class BulkAttendanceCreator:
                     activation=term.activation,
                     room=term.room,
                 )
-                created += 1
+                if was_created is False:
+                    skipped += 1
+                    logger.info("Skipping row %d: attendance already exists", index)
+                else:
+                    created += 1
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 errors.append(f"Row {index}: {exc}")
-            
-            break
 
-        return BulkCreateResult(created=created, failed=failed, errors=errors)
+
+        return BulkCreateResult(created=created, failed=failed, errors=errors, skipped=skipped)

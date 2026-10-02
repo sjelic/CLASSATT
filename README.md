@@ -15,7 +15,7 @@ Python CLI project for loading attendance schedules from Excel, creating attenda
 ### 1) Clone and enter the project
 
 ```bash
-git clone --branch codex/refactor-command-orchestration https://github.com/sjelic/CLASSATT.git
+git clone --branch codex/skip-existing-attendance https://github.com/sjelic/CLASSATT.git
 cd CLASSATT
 ```
 
@@ -185,3 +185,16 @@ pytest
 - `browser.py`: Edge startup and cleanup for the lifetime of a command.
 - `session.py`: login submission and authentication verification; no landing-page parameter.
 - `single_creator.py`, `bulk_creator.py`, `checker.py`, `loader.py`: existing operation logic and navigation.
+
+## Existing attendance detection
+
+Before submitting a single or bulk attendance, the creator searches using the
+existing checker with the same date, time, course code, and room. A match skips
+creation and reports that the attendance already exists. Search failures stop
+single creation; bulk creation records the row failure and continues.
+
+Bulk creation processes every row and its JSON summary includes `created`,
+`skipped`, `failed`, and `errors`. Skipped rows count as successful processing
+(exit status 0 when there are no failures). Newly created attendance is still
+verified through the checker after submission. CLI date strings are converted to
+date objects before using the calendar picker.

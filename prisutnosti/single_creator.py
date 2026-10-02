@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import logging
+from datetime import date as Date, datetime
+
 from playwright.sync_api import Page
 
 from .checker import AttendanceChecker
+
+logger = logging.getLogger(__name__)
 
 CREATE_URL = "https://esalter.grf.bg.ac.rs/nastavnik/form_kreiraj_prisustvo.php"
 
@@ -14,13 +19,21 @@ class AttendanceTermCreator:
 
     def create_term(
         self,
-        date: str,
+        date: str | Date,
         time: str,
         link_duration: int,
         course_code: str,
         activation: str,
         room: str,
-    ) -> None:
+    ) -> bool:
+        """Return False for an existing attendance, True after creating one."""
+        if isinstance(date, str):
+            date = datetime.strptime(date, "%Y-%m-%d").date()
+        search = dict(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
+        if self.checker.check(**search):
+            logger.info("Skipping existing attendance: course=%s date=%s time=%s room=%s",
+                        course_code, search["date"], time, room)
+            return False
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
         
         date.year, date.month, date.day  # validate date format
@@ -43,9 +56,10 @@ class AttendanceTermCreator:
         self._select_value("#sifraPredmet", course_code) 
         self.page.locator("#btnSubMitc").click()
 
-        created = self.checker.check(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
+        created = self.checker.check(**search)
         if not created:
             raise RuntimeError("Attendance term was not created.")
+        return True
 
     def _select_value(self, selector: str, value: str) -> None:
         element = self.page.locator(selector)

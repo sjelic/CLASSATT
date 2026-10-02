@@ -30,10 +30,12 @@ def login() -> CommandResult:
 
 def create_term(page: Page, *, date: str, time: str, link_duration: int,
                 course_code: str, activation: str, room: str) -> CommandResult:
-    AttendanceTermCreator(page).create_term(
+    was_created = AttendanceTermCreator(page).create_term(
         date=date, time=time, link_duration=link_duration,
         course_code=course_code, activation=activation, room=room,
     )
+    if was_created is False:
+        return CommandResult("Attendance already exists; skipped.")
     return CommandResult("Attendance term created.")
 
 
