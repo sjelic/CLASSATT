@@ -28,7 +28,7 @@ class BulkAttendanceCreator:
         for index, term in enumerate(terms, start=1):
             try:
                 self.term_creator.create_term(
-                    date=term.starts_at.strftime("%Y-%m-%d"),
+                    date=term.registration_start,
                     time=term.registration_start.strftime("%H:%M:%S"),
                     link_duration=term.link_duration_minutes,
                     course_code=course_code,
@@ -39,5 +39,7 @@ class BulkAttendanceCreator:
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 errors.append(f"Row {index}: {exc}")
+            
+            break
 
         return BulkCreateResult(created=created, failed=failed, errors=errors)
