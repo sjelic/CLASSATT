@@ -234,3 +234,40 @@ reports successfully checked rows and failed rows; exit status is 1 if any row
 failed, otherwise 0. A successful check with no matches is not a row failure.
 No attendance-record collection is returned. The existing single-filter `check`
 command remains available.
+
+## Aggregate calendar attendance lists
+
+```bash
+prisutnosti check-calendar \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --aggregate-lists yes \
+  --list-directory ./lists \
+  --aggregate-output-path ./lists/attendance_all.xlsx
+```
+
+`--aggregate-lists yes|no` defaults to `no`; `--aggregated-lists` is an alias.
+`no` preserves individual-download behavior. `yes` automatically enables list
+downloads and requires `--list-directory` and a nonempty `ТИП НАСТАВЕ` column in
+the calendar. Individual files are retained. QR download options are unchanged.
+
+Only files downloaded during the current run are combined, immediately after
+each download, to associate every student record with the correct calendar row.
+Original columns are kept; the added columns are `TIP NASTAVE`, `OD`, `DO`, and
+`POČETAK PRIJAVE`. Dates/times are stored as Excel datetime values. Every match
+and downloaded list is included; records are not deduplicated across classes.
+A merged DataTables report title above the headers is supported. Existing columns
+with these metadata names cause an error rather than being overwritten.
+
+The default output is `PRISUTNOST_ZBIRNO_<course-code>.xlsx` under the list
+directory. `--aggregate-output-path` overrides it and requires aggregation to be
+on. Each run rebuilds the aggregate atomically from current downloads, without
+including stale files or a previous aggregate. Calendar and individual-download
+files cannot be used as the aggregate output. An empty run produces a workbook
+with the calendar metadata columns and no records.
+
+If a download or import fails, that row is logged as failed and later rows are
+processed. The aggregate contains the successfully imported lists only, a warning
+reports that it is partial, and the command exits with status 1. The final logs
+report the output path, number of imported lists, student records, and failed rows.

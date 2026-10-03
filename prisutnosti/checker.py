@@ -6,6 +6,7 @@ import base64
 import re
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 from playwright.sync_api import Page, Locator, expect
 
@@ -78,6 +79,7 @@ class AttendanceChecker:
         list_directory: str | None = None,
         download_qrcode: bool = False,
         qrcode_directory: str | None = None,
+        on_list_downloaded: Callable[[Path], None] | None = None,
     ) -> None:
         
         
@@ -111,7 +113,10 @@ class AttendanceChecker:
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
                 if download_list:
-                    self._download_list(row, row_dict, list_directory)
+                    if on_list_downloaded is not None:
+                        self._download_list(row, row_dict, list_directory, on_list_downloaded)
+                    else:
+                        self._download_list(row, row_dict, list_directory)
                     # Report navigation replaces the table. Rebuild the filtered
                     # page before resolving the next row's locator.
                     self._open_results(query, page_index)
@@ -136,7 +141,8 @@ class AttendanceChecker:
         parts = [str(row_dict.get(key, "UNKNOWN")) for key in ("Kod predmeta", "Datum prisustva", "Vreme pocetka", "Sala")]
         return prefix + "_" + "_".join(re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", part) for part in parts) + extension
 
-    def _download_list(self, row: Locator, row_dict: dict[str, Any], directory: str) -> None:
+    def _download_list(self, row: Locator, row_dict: dict[str, Any], directory: str,
+                       on_list_downloaded: Callable[[Path], None] | None = None) -> None:
         logger.info("Opening attendance list report")
         row.locator('#raporti_prisustvo_id input[value="СПИСАК СТУДЕНАТА"]').click()
         export = self.page.locator(
@@ -150,6 +156,8 @@ class AttendanceChecker:
         filepath = Path(directory, self._filename("PRISUTNOST", row_dict, ".xlsx"))
         pending.value.save_as(filepath)
         logger.info("Attendance list saved: %s", filepath)
+        if on_list_downloaded is not None:
+            on_list_downloaded(filepath)
 
     @staticmethod
     def _available_path(directory: str, filename: str) -> Path:
