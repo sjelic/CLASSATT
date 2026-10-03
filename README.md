@@ -206,3 +206,31 @@ saves its `data:image/png;base64,...` contents directly as PNG. It does not open
 or click a modal. Rows without images are logged and skipped; rows with multiple
 images raise an error rather than selecting an arbitrary image. Filename and
 output-directory behavior are unchanged.
+
+## Check every attendance in the Excel calendar
+
+```bash
+prisutnosti check-calendar \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --download-list yes \
+  --list-directory ./lists \
+  --download-qrcode yes \
+  --qrcode-directory ./qr
+```
+
+This command uses the same workbook validation and columns as bulk creation.
+For each row it derives date/time from `ПОЧЕТАК ПРИЈАВЕ` and room from `САЛА`;
+`--course-code` applies to all rows. Date, time, and room filters are not entered
+manually. Login happens once, and all checks/downloads reuse that authenticated
+page. Both download options default to `no`; each enabled download requires its
+corresponding directory argument. Every matching attendance is processed by the
+existing check functionality, including pagination and downloads.
+
+Found records and missing matches are logged by the checker. A row error is
+logged and processing continues with subsequent rows. The final log summary
+reports successfully checked rows and failed rows; exit status is 1 if any row
+failed, otherwise 0. A successful check with no matches is not a row failure.
+No attendance-record collection is returned. The existing single-filter `check`
+command remains available.
