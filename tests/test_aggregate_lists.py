@@ -17,7 +17,7 @@ def calendar(tmp_path):
         start = pd.Timestamp(2026, 10, day, 13)
         rows.append({"ОД": start, "ДО": start + pd.Timedelta(hours=1), "САЛА": "A1",
                      "ПОЧЕТАК ПРИЈАВЕ": start + pd.Timedelta(minutes=15),
-                     "ТРАЈАЊЕ ЛИНКА": 30, "АКТИВАЦИЈА": "selected", "ТИП НАСТАВЕ": kind})
+                     "ТРАЈАЊЕ ЛИНКА": 30, "АКТИВАЦИЈА": "selected", "ТИП НАСТАВЕ": kind, "ДАТУМ": start - pd.Timedelta(days=1)})
     path = tmp_path / "calendar.xlsx"
     pd.DataFrame(rows).to_excel(path, sheet_name="Calendar", index=False)
     return path
@@ -44,8 +44,9 @@ def test_only_current_downloads_are_aggregated_with_correct_row_metadata(tmp_pat
     assert result.aggregate_path.name == "PRISUTNOST_ZBIRNO_ABC.xlsx"
     records = pd.read_excel(result.aggregate_path, dtype={"Index": str})
     assert len(records) == 3
-    assert list(records.columns) == ["Student", "Index", "TIP NASTAVE", "OD", "DO", "POČETAK PRIJAVE"]
+    assert list(records.columns) == ["Student", "Index", "TIP NASTAVE", "OD", "DO", "POČETAK PRIJAVE", "ДАТУМ"]
     assert records["TIP NASTAVE"].tolist() == ["PREDAVANJE", "PREDAVANJE", "VEŽBE"]
+    assert records["ДАТУМ"].tolist() == [pd.Timestamp(2026, 10, 7, 13), pd.Timestamp(2026, 10, 7, 13), pd.Timestamp(2026, 10, 8, 13)]
     assert records["Index"].tolist() == ["001"] * 3
     assert records.iloc[2]["OD"] == pd.Timestamp(2026, 10, 9, 13)
     assert records.iloc[2]["POČETAK PRIJAVE"] == pd.Timestamp(2026, 10, 9, 13, 15)
@@ -69,7 +70,7 @@ def test_merged_export_title_is_not_a_student_record(tmp_path):
     output = tmp_path / "all.xlsx"
     aggregator = AttendanceListAggregator(output)
     metadata = {"TIP NASTAVE": "VEŽBE", "OD": datetime(2026, 10, 8, 13),
-                "DO": datetime(2026, 10, 8, 14), "POČETAK PRIJAVE": datetime(2026, 10, 8, 13, 15)}
+                "DO": datetime(2026, 10, 8, 14), "POČETAK PRIJAVE": datetime(2026, 10, 8, 13, 15), "ДАТУМ": datetime(2026, 10, 8)}
     aggregator.add(path, metadata)
     aggregator.write()
     result = pd.read_excel(output)
@@ -117,3 +118,14 @@ def test_aggregate_cannot_overwrite_individual_list(tmp_path):
     with pytest.raises(ValueError, match="conflicts"):
         aggregator.write()
     assert path.read_bytes() == before
+
+
+def test_missing_calendar_date_is_required_only_for_aggregation(tmp_path):
+    path = calendar(tmp_path)
+    df = pd.read_excel(path).drop(columns="ДАТУМ")
+    df.to_excel(path, sheet_name="Calendar", index=False)
+    operation = CalendarAttendanceChecker(MagicMock())
+    options = dict(excel_path=str(path), excel_sheet="Calendar", course_code="ABC")
+    assert operation.check_from_excel(**options).checked == 2
+    with pytest.raises(ValueError, match="ДАТУМ"):
+        operation.check_from_excel(**options, aggregate_lists=True, list_directory=str(tmp_path))
