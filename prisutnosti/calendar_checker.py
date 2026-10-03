@@ -36,6 +36,8 @@ class CalendarAttendanceChecker:
         df = load_terms_dataframe(excel_path, excel_sheet)
         aggregator = None
         if aggregate_lists:
+            if "ДАТУМ" not in df.columns:
+                raise ValueError("Aggregation requires calendar column ДАТУМ")
             if "ТИП НАСТАВЕ" not in df.columns or df["ТИП НАСТАВЕ"].isna().any() or df["ТИП НАСТАВЕ"].astype(str).str.strip().eq("").any():
                 raise ValueError("Aggregation requires ТИП НАСТАВЕ for every calendar row")
             default_name = AttendanceChecker._filename("PRISUTNOST_ZBIRNO", {"Kod predmeta": course_code}, ".xlsx").removesuffix("_UNKNOWN_UNKNOWN_UNKNOWN.xlsx") + ".xlsx"
@@ -55,7 +57,7 @@ class CalendarAttendanceChecker:
             extra = {}
             if aggregator is not None:
                 metadata = {"TIP NASTAVE": str(df.iloc[index - 1]["ТИП НАСТАВЕ"]),
-                            "OD": term.starts_at, "DO": term.ends_at, "POČETAK PRIJAVE": term.registration_start}
+                            "OD": term.starts_at, "DO": term.ends_at, "POČETAK PRIJAVE": term.registration_start, "ДАТУМ": df.iloc[index - 1]["ДАТУМ"]}
                 extra["on_list_downloaded"] = lambda path, values=metadata: aggregator.add(path, values)
             try:
                 self.checker.check(date=date, time=time, course_code=course_code, room=term.room,

@@ -7,7 +7,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)
-METADATA_COLUMNS = ["TIP NASTAVE", "OD", "DO", "POČETAK PRIJAVE"]
+METADATA_COLUMNS = ["TIP NASTAVE", "OD", "DO", "POČETAK PRIJAVE", "ДАТУМ"]
 
 
 class AttendanceListAggregator:

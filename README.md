@@ -271,3 +271,7 @@ If a download or import fails, that row is logged as failed and later rows are
 processed. The aggregate contains the successfully imported lists only, a warning
 reports that it is partial, and the command exits with status 1. The final logs
 report the output path, number of imported lists, student records, and failed rows.
+
+Agregirana lista uključuje i kolonu `ДАТУМ`, prenetu neposredno iz odgovarajućeg
+reda kalendara za svakog studenta. Za agregaciju je zato potrebna kolona `ДАТУМ`
+u kalendaru; provera bez agregacije je ne zahteva.
