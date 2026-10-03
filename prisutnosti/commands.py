@@ -68,3 +68,19 @@ def latex(*, excel_path: str, excel_sheet: str, course_code: str,
     skipped = "\n".join(str(path) for path in result.skipped) or "None"
     return CommandResult(f"LaTeX rebuilt: {result.output_path}; included={result.written}; "
                          f"skipped={len(result.skipped)}\nSkipped QR codes:\n{skipped}")
+
+
+def check_calendar(page: Page, *, excel_path: str, excel_sheet: str, course_code: str,
+                   download_list: bool = False, list_directory: str | None = None,
+                   download_qrcode: bool = False, qrcode_directory: str | None = None,
+                   aggregate_lists: bool = False, aggregate_output_path: str | None = None) -> CommandResult:
+    from .calendar_checker import CalendarAttendanceChecker
+    result = CalendarAttendanceChecker(AttendanceChecker(page)).check_from_excel(
+        excel_path=excel_path, excel_sheet=excel_sheet, course_code=course_code,
+        download_list=download_list, list_directory=list_directory,
+        download_qrcode=download_qrcode, qrcode_directory=qrcode_directory,
+        aggregate_lists=aggregate_lists, aggregate_output_path=aggregate_output_path,
+    )
+    return CommandResult(f"Calendar checked: checked={result.checked}; failed={result.failed}"
+                         + (f"; aggregate={result.aggregate_path}" if result.aggregate_path else ""),
+                         0 if result.failed == 0 else 1)

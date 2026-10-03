@@ -206,3 +206,68 @@ saves its `data:image/png;base64,...` contents directly as PNG. It does not open
 or click a modal. Rows without images are logged and skipped; rows with multiple
 images raise an error rather than selecting an arbitrary image. Filename and
 output-directory behavior are unchanged.
+
+## Check every attendance in the Excel calendar
+
+```bash
+prisutnosti check-calendar \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --download-list yes \
+  --list-directory ./lists \
+  --download-qrcode yes \
+  --qrcode-directory ./qr
+```
+
+This command uses the same workbook validation and columns as bulk creation.
+For each row it derives date/time from `ПОЧЕТАК ПРИЈАВЕ` and room from `САЛА`;
+`--course-code` applies to all rows. Date, time, and room filters are not entered
+manually. Login happens once, and all checks/downloads reuse that authenticated
+page. Both download options default to `no`; each enabled download requires its
+corresponding directory argument. Every matching attendance is processed by the
+existing check functionality, including pagination and downloads.
+
+Found records and missing matches are logged by the checker. A row error is
+logged and processing continues with subsequent rows. The final log summary
+reports successfully checked rows and failed rows; exit status is 1 if any row
+failed, otherwise 0. A successful check with no matches is not a row failure.
+No attendance-record collection is returned. The existing single-filter `check`
+command remains available.
+
+## Aggregate calendar attendance lists
+
+```bash
+prisutnosti check-calendar \
+  --excel-path ./schedule.xlsx \
+  --excel-sheet Sheet1 \
+  --course-code B3I3VP \
+  --aggregate-lists yes \
+  --list-directory ./lists \
+  --aggregate-output-path ./lists/attendance_all.xlsx
+```
+
+`--aggregate-lists yes|no` defaults to `no`; `--aggregated-lists` is an alias.
+`no` preserves individual-download behavior. `yes` automatically enables list
+downloads and requires `--list-directory` and a nonempty `ТИП НАСТАВЕ` column in
+the calendar. Individual files are retained. QR download options are unchanged.
+
+Only files downloaded during the current run are combined, immediately after
+each download, to associate every student record with the correct calendar row.
+Original columns are kept; the added columns are `TIP NASTAVE`, `OD`, `DO`, and
+`POČETAK PRIJAVE`. Dates/times are stored as Excel datetime values. Every match
+and downloaded list is included; records are not deduplicated across classes.
+A merged DataTables report title above the headers is supported. Existing columns
+with these metadata names cause an error rather than being overwritten.
+
+The default output is `PRISUTNOST_ZBIRNO_<course-code>.xlsx` under the list
+directory. `--aggregate-output-path` overrides it and requires aggregation to be
+on. Each run rebuilds the aggregate atomically from current downloads, without
+including stale files or a previous aggregate. Calendar and individual-download
+files cannot be used as the aggregate output. An empty run produces a workbook
+with the calendar metadata columns and no records.
+
+If a download or import fails, that row is logged as failed and later rows are
+processed. The aggregate contains the successfully imported lists only, a warning
+reports that it is partial, and the command exits with status 1. The final logs
+report the output path, number of imported lists, student records, and failed rows.

@@ -46,10 +46,17 @@ def build_parser() -> argparse.ArgumentParser:
     check_parser.add_argument("--time")
     check_parser.add_argument("--course-code")
     check_parser.add_argument("--room")
-    check_parser.add_argument("--download-list", choices=["yes", "no"], default="no")
-    check_parser.add_argument("--list-directory")
-    check_parser.add_argument("--download-qrcode", choices=["yes", "no"], default="no")
-    check_parser.add_argument("--qrcode-directory")
+    calendar_parser = sub.add_parser("check-calendar", help="Check all attendance terms from Excel")
+    calendar_parser.add_argument("--excel-path", required=True)
+    calendar_parser.add_argument("--excel-sheet", required=True)
+    calendar_parser.add_argument("--course-code", required=True)
+    calendar_parser.add_argument("--aggregate-lists", "--aggregated-lists", dest="aggregate_lists", choices=["yes", "no"], default="no")
+    calendar_parser.add_argument("--aggregate-output-path")
+    for command_parser in (check_parser, calendar_parser):
+        command_parser.add_argument("--download-list", choices=["yes", "no"], default="no")
+        command_parser.add_argument("--list-directory")
+        command_parser.add_argument("--download-qrcode", choices=["yes", "no"], default="no")
+        command_parser.add_argument("--qrcode-directory")
 
     return parser
 
@@ -74,6 +81,13 @@ def _dispatch(args: argparse.Namespace, page: Page | None = None) -> commands.Co
     if args.command == "create":
         return commands.create(
             page, excel_path=args.excel_path, excel_sheet=args.excel_sheet, course_code=args.course_code,
+        )
+    if args.command == "check-calendar":
+        return commands.check_calendar(
+            page, excel_path=args.excel_path, excel_sheet=args.excel_sheet, course_code=args.course_code,
+            download_list=args.download_list == "yes", list_directory=args.list_directory,
+            download_qrcode=args.download_qrcode == "yes", qrcode_directory=args.qrcode_directory,
+            aggregate_lists=args.aggregate_lists == "yes", aggregate_output_path=args.aggregate_output_path,
         )
     if args.command == "check":
         return commands.check(
