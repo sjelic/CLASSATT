@@ -56,12 +56,15 @@ class AttendanceTermCreator:
         self._select_value("#aktivacijaprisustvo", activation)
         self._select_value("#sifraPredmet", course_code) 
         logger.info("Submitting attendance form")
-        self.page.locator("#btnSubMitc").click()
+        # Finish the form POST/redirect before the checker navigates away.
+        with self.page.expect_navigation(wait_until="domcontentloaded"):
+            self.page.locator("#btnSubMitc").click()
+        logger.info("Attendance form submission completed; verifying created attendance")
 
         created = self.checker.exists(**search)
         if not created:
             logger.error("Created attendance could not be found")
-            raise RuntimeError("Attendance term was not created.")
+            raise RuntimeError("Attendance was submitted, but the checker could not find it in the overview.")
         return True
 
     def _select_value(self, selector: str, value: str) -> None:
