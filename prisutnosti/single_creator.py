@@ -48,7 +48,7 @@ class AttendanceTermCreator:
         
         self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-months > table > tbody > tr > td > span").get_by_text(f"{date.strftime('%b')}").click()
         
-        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-days > table > tbody > tr > td.day:not(.new)").get_by_text(f"{date.day}", exact=True).click()
+        self.page.locator("body > div.datepicker.datepicker-dropdown.dropdown-menu.datepicker-orient-left.datepicker-orient-top > div.datepicker-days > table > tbody > tr > td.day:not(.new):not(.old):not(.disabled)").get_by_text(f"{date.day}", exact=True).click()
         
         self._select_value("#vremeprisustvo", time)
         self._select_value("#salaprisustvo", room)
