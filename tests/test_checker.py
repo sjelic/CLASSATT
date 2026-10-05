@@ -83,15 +83,37 @@ def test_check_command_returns_none_and_does_not_serialize_records(monkeypatch):
     assert commands.check(MagicMock()) is None
 
 
-def test_exists_returns_only_boolean():
-    page = MagicMock()
-    page.evaluate.return_value = {"recordsDisplay": 3}
-    operation = AttendanceChecker(page)
-    operation._open_results = MagicMock()
-    assert operation.exists(date="2026-10-02", time="10:00", course_code="ABC", room="A1") is True
+@pytest.mark.parametrize("found", [False, True])
+def test_exists_returns_only_boolean_using_check(found):
+    operation = AttendanceChecker(MagicMock())
+    def check(**kwargs):
+        if found:
+            kwargs["on_attendance_found"]()
+    operation.check = MagicMock(side_effect=check)
+    assert operation.exists(date="2026-10-02", time="10:00", course_code="ABC", room="A1") is found
+    criteria = operation.check.call_args.kwargs
+    assert {key: criteria[key] for key in ("date", "time", "course_code", "room")} == {
+        "date": "2026-10-02", "time": "10:00", "course_code": "ABC", "room": "A1"}
 
 
 def test_cli_void_check_finishes_without_logging_serialized_result(monkeypatch, caplog):
     monkeypatch.setattr(commands, "check", lambda *args, **kwargs: None)
     assert cli._run_command(cli.build_parser().parse_args(["check"]), MagicMock()) == 0
     assert "null" not in caplog.text
+
+
+@pytest.mark.parametrize('empty,records_display', [(False, 0), (True, 5)])
+def test_exists_uses_same_rows_as_check_instead_of_datatables_counter(empty, records_display):
+    page = MagicMock()
+    page.evaluate.return_value = {'pages': 1, 'recordsDisplay': records_display}
+    headers, rows, row = MagicMock(), MagicMock(), MagicMock()
+    headers.all_text_contents.return_value = ['Kod predmeta']
+    rows.count.return_value = 1
+    rows.nth.return_value = row
+    row.locator.return_value.count.return_value = int(empty)
+    row.locator.return_value.all_text_contents.return_value = ['ABC']
+    page.locator.side_effect = lambda selector: rows if 'tbody' in selector else headers
+    operation = AttendanceChecker(page)
+    operation._open_results = MagicMock()
+    assert operation.exists(date='2026-10-02', time='10:00', course_code='ABC', room='A1') is (not empty)
+    operation._open_results.assert_called_once_with('2026-10-02 ABC A1 10:00')

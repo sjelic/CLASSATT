@@ -54,3 +54,42 @@ def test_single_command_reports_skip(monkeypatch):
     result = commands.create_term(MagicMock(), **PARAMETERS)
     assert result.output == "Attendance already exists; skipped."
     assert result.exit_code == 0
+
+
+def test_verification_waits_for_submission_navigation():
+    page, checker = MagicMock(), MagicMock()
+    events = []
+    def exists(**kwargs):
+        events.append('check')
+        return events.count('check') == 2
+    checker.exists.side_effect = exists
+    navigation = page.expect_navigation.return_value
+    navigation.__enter__.side_effect = lambda: events.append('waiting')
+    navigation.__exit__.side_effect = lambda *args: events.append('submitted')
+    page.locator.return_value.click.side_effect = lambda: events.append('click')
+    creator = AttendanceTermCreator(page, checker)
+    creator._select_value = MagicMock()
+    assert creator.create_term(**PARAMETERS) is True
+    assert events[-4:] == ['waiting', 'click', 'submitted', 'check']
+    page.expect_navigation.assert_called_once_with(wait_until='domcontentloaded')
+
+
+def test_submission_failure_does_not_run_post_creation_lookup():
+    page, checker = MagicMock(), MagicMock()
+    checker.exists.return_value = False
+    page.expect_navigation.return_value.__exit__.side_effect = RuntimeError('Submission failed')
+    creator = AttendanceTermCreator(page, checker)
+    creator._select_value = MagicMock()
+    with pytest.raises(RuntimeError, match='Submission failed'):
+        creator.create_term(**PARAMETERS)
+    assert checker.exists.call_count == 1
+
+
+def test_missing_after_submission_reports_verification_failure():
+    page, checker = MagicMock(), MagicMock()
+    checker.exists.return_value = False
+    creator = AttendanceTermCreator(page, checker)
+    creator._select_value = MagicMock()
+    with pytest.raises(RuntimeError, match='submitted, but the checker could not find'):
+        creator.create_term(**PARAMETERS)
+    assert checker.exists.call_count == 2
