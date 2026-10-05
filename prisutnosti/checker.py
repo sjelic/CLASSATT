@@ -80,6 +80,7 @@ class AttendanceChecker:
         download_qrcode: bool = False,
         qrcode_directory: str | None = None,
         on_list_downloaded: Callable[[Path], None] | None = None,
+        on_attendance_found: Callable[[], None] | None = None,
     ) -> None:
         
         
@@ -110,6 +111,8 @@ class AttendanceChecker:
                 logger.info("Found attendance row %d on page %d", row_index + 1, page_index + 1)
                 logger.info("Attendance details: %s", row_dict)
                 found_count += 1
+                if on_attendance_found is not None:
+                    on_attendance_found()
                 if download_qrcode:
                     self._download_qrcode_if_available(row, row_dict, qrcode_directory)
                 if download_list:
@@ -131,9 +134,15 @@ class AttendanceChecker:
 
     def exists(self, *, date: str, time: str, course_code: str, room: str) -> bool:
         """Internal existence query without returning attendance records."""
-        self._open_results(" ".join([date, course_code, room, time]))
-        info = self.page.evaluate("() => jQuery('#dataTables-studenti').DataTable().page.info()")
-        return info["recordsDisplay"] > 0
+        found = False
+
+        def mark_found() -> None:
+            nonlocal found
+            found = True
+
+        self.check(date=date, time=time, course_code=course_code, room=room,
+                   on_attendance_found=mark_found)
+        return found
 
     @staticmethod
     def _filename(prefix: str, row_dict: dict[str, Any], extension: str) -> str:
