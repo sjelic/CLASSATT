@@ -30,13 +30,15 @@ class AttendanceTermCreator:
         if isinstance(date, str):
             date = datetime.strptime(date, "%Y-%m-%d").date()
         search = dict(date=date.strftime("%Y-%m-%d"), time=time, course_code=course_code, room=room)
+        logger.info("Checking attendance before creation: date=%s time=%s course=%s room=%s",
+                    search["date"], time, course_code, room)
         if self.checker.exists(**search):
             logger.info("Skipping existing attendance: course=%s date=%s time=%s room=%s",
                         course_code, search["date"], time, room)
             return False
         self.page.goto(CREATE_URL, wait_until="domcontentloaded")
         
-        logger.info("Selecting attendance date")
+        logger.info("Selecting attendance date: %s", search["date"])
         date.year, date.month, date.day  # validate date format
         self.page.locator("#datumprisustvo").click()
         
@@ -55,11 +57,12 @@ class AttendanceTermCreator:
         self._select_value("#trajanjeprisustvo", str(link_duration))
         self._select_value("#aktivacijaprisustvo", activation)
         self._select_value("#sifraPredmet", course_code) 
-        logger.info("Submitting attendance form")
+        logger.info("Submitting attendance form: date=%s time=%s", search["date"], time)
         # Finish the form POST/redirect before the checker navigates away.
         with self.page.expect_navigation(wait_until="domcontentloaded"):
             self.page.locator("#btnSubMitc").click()
-        logger.info("Attendance form submission completed; verifying created attendance")
+        logger.info("Attendance form submission completed; verifying created attendance: date=%s time=%s",
+                    search["date"], time)
 
         created = self.checker.exists(**search)
         if not created:
